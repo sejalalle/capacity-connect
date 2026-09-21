@@ -1,0 +1,13 @@
+{
+  "name": "samarthya",
+  "private": true,
+  "scripts": {
+    "test": "npm test --prefix server",
+    "build": "npm run build --prefix client",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "prettier": "^3.9.8"
+  }
+}
