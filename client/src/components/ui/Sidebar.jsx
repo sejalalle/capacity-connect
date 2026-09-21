@@ -1,11 +1,8 @@
-import { NavLink } from "react-router-dom";
-import { X, LogOut, ArrowUpRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { X, LogOut, ChevronDown, ChevronRight, Sparkles } from "lucide-react";
 import Brand from "./Brand";
 import useAuth from "../../hooks/useAuth";
-import { navigation } from "../../utils/navigation";
 import { navigationGroups } from "../../utils/navigation";
 
 export default function Sidebar({ role, open, onClose }) {
@@ -49,7 +46,6 @@ export default function Sidebar({ role, open, onClose }) {
         onClick={onClose}
         aria-hidden="true"
       />
-      <aside className={`sidebar ${open ? "open" : ""}`}>
       <aside className={`sidebar ${open ? "open" : ""}`} aria-label="Main sidebar">
         <div className="sidebar-brand">
           <Brand compact />
@@ -58,28 +54,13 @@ export default function Sidebar({ role, open, onClose }) {
             onClick={onClose}
             aria-label="Close navigation"
           >
-            <X />
             <X size={20} />
           </button>
         </div>
-        <div className="workspace-label">
-          {role === "admin" ? "Admin / Coordinator" : role} workspace
 
         <div className="workspace-badge-wrap">
           <span className="workspace-role-pill">{roleTitle}</span>
         </div>
-        <nav aria-label="Workspace navigation">
-          {navigation[role].map(([label, path, Icon]) => (
-            <NavLink
-              key={label}
-              to={`/${role}${path ? `/${path}` : ""}`}
-              end
-              onClick={onClose}
-            >
-              <Icon size={18} />
-              {label}
-            </NavLink>
-          ))}
 
         <nav className="sidebar-nav" aria-label="Workspace navigation">
           {groups.map((group) => {
@@ -133,14 +114,6 @@ export default function Sidebar({ role, open, onClose }) {
         </nav>
 
         <div className="sidebar-bottom">
-          <div className="sidebar-note">
-            <span className="text-xs uppercase tracking-widest">
-              Purpose into practice
-            </span>
-            <p>
-              Learning is the beginning.
-              <br />
-              Capability is the outcome.
           <div className="sidebar-footer-card">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-plum-700">
               <Sparkles size={13} className="text-copper-600" />
@@ -149,10 +122,7 @@ export default function Sidebar({ role, open, onClose }) {
             <p className="text-xs text-ivory-700 mt-1 leading-snug">
               Synthetic training records & traceable competencies.
             </p>
-            <ArrowUpRight size={18} />
           </div>
-          <button onClick={logout}>
-            <LogOut size={17} /> Sign out
 
           <button
             type="button"
@@ -162,7 +132,6 @@ export default function Sidebar({ role, open, onClose }) {
             <LogOut size={16} />
             <span>Sign out</span>
           </button>
-          <small>Demo data</small>
         </div>
       </aside>
     </>

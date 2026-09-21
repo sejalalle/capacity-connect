@@ -1198,7 +1198,6 @@ function CourseEditor({ data, busy, act }) {
               Published competency
               <select
                 value={draft.selectedCompetency || ""}
-                onChange={(e) =>
                 onChange={(e) => {
                   const comp = competencies.find(
                     (c) => c._id === e.target.value,
@@ -1207,11 +1206,6 @@ function CourseEditor({ data, busy, act }) {
                   setDraft({
                     ...draft,
                     selectedCompetency: e.target.value,
-                    selectedLevel: competencies.find(
-                      (c) => c._id === e.target.value,
-                    )?.levels?.[0]?.value,
-                  })
-                }
                     selectedLevel: defaultLevel,
                   });
                 }}
@@ -1234,7 +1228,6 @@ function CourseEditor({ data, busy, act }) {
                 }
               >
                 <option value="">Select defined level</option>
-                {(selectedCompetency?.levels || []).map((level) => (
                 {(selectedCompetency?.levels?.length
                   ? selectedCompetency.levels
                   : [1, 2, 3, 4, 5].map((v) => ({

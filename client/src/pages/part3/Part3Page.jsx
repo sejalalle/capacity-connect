@@ -143,13 +143,11 @@ export default function Part3Page() {
             : user.role === "trainer"
               ? "Trainer"
               : "Trainee",
-          TITLES[segment] || "Part 3A",
           TITLES[segment] || "Training & Assessments",
         ]}
       />
       <PageHeader
         eyebrow={<span className="demo-label">Demo data</span>}
-        title={TITLES[segment] || "Part 3A"}
         title={TITLES[segment] || "Training & Assessments"}
         description="Trainer management, learning delivery, assessments and human-controlled results."
       />

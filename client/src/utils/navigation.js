@@ -21,27 +21,9 @@ import {
   BrainCircuit,
   Activity,
 } from "lucide-react";
-export const navigation = {
 
 export const navigationGroups = {
   trainee: [
-    ["Dashboard", "", LayoutDashboard],
-    ["Competency Passport", "competency-passport", Fingerprint],
-    ["Skill Gaps", "skill-gaps", ChartNoAxesColumnIncreasing],
-    ["Training Needs", "training-needs", Route],
-    ["Learning Paths", "learning-paths", Route],
-    ["Courses", "courses", Library],
-    ["My Nominations", "nominations", ShieldCheck],
-    ["Training Calendar", "calendar", CalendarDays],
-    ["My Learning", "learning", BookOpenCheck],
-    ["Assessments", "assessments", ClipboardCheck],
-    ["Published Results", "results", ShieldCheck],
-    ["Evidence", "evidence", FileCheck2],
-    ["Competency History", "competency-history", History],
-    ["Follow-up Actions", "follow-ups", Route],
-    ["Skill Suggestions", "skill-suggestions", BrainCircuit],
-    ["Notifications", "notifications", Bell],
-    ["Profile", "profile", UserRound],
     {
       group: "Overview",
       items: [["Dashboard", "", LayoutDashboard]],
@@ -84,23 +66,6 @@ export const navigationGroups = {
     },
   ],
   trainer: [
-    ["Dashboard", "", LayoutDashboard],
-    ["My Courses", "courses", Library],
-    ["Training Calendar", "calendar", CalendarDays],
-    ["Trainer Profile & Expertise", "trainer-profile", UserRound],
-    ["Availability", "availability", Clock3],
-    ["Assigned Batches", "assigned-batches", UserCheck],
-    ["Learning Resources", "learning", BookOpenCheck],
-    ["Question Bank", "question-bank", ListChecks],
-    ["Assessments", "assessments", ClipboardCheck],
-    ["Evaluation Queue", "evaluations", ClipboardCheck],
-    ["Published Results", "results", ShieldCheck],
-    ["Evidence Review", "evidence-review", FileCheck2],
-    ["Competency Decisions", "competency-decisions", Fingerprint],
-    ["Follow-up Actions", "follow-ups", Route],
-    ["AI Question Drafts", "ai-question-drafts", BrainCircuit],
-    ["Account Profile", "profile", UserRound],
-    ["Notifications", "notifications", Bell],
     {
       group: "Overview",
       items: [["Dashboard", "", LayoutDashboard]],
@@ -138,28 +103,6 @@ export const navigationGroups = {
     },
   ],
   admin: [
-    ["Dashboard", "", LayoutDashboard],
-    ["Users", "users", Users],
-    ["Competency Framework", "competencies", Fingerprint],
-    ["Job Role Requirements", "job-role-requirements", Building2],
-    ["Training Needs", "training-needs", Route],
-    ["Learning Paths", "learning-paths", Route],
-    ["Courses", "courses", Library],
-    ["Batches", "batches", CalendarDays],
-    ["Nominations", "nominations", ShieldCheck],
-    ["Training Calendar", "calendar", CalendarDays],
-    ["Trainer Discovery", "trainer-discovery", UserCheck],
-    ["Assignment Management", "trainer-assignments", UserCheck],
-    ["Assessment Oversight", "assessments", ClipboardCheck],
-    ["Evaluator Queue", "evaluations", ClipboardCheck],
-    ["Result Publication", "results", ShieldCheck],
-    ["Review Oversight", "review-oversight", FileCheck2],
-    ["Organizational Capability", "organizational-capability", Building2],
-    ["Follow-up Oversight", "follow-up-oversight", Route],
-    ["AI Activity", "ai-activity", Activity],
-    ["Audit Logs", "audit-logs", ScrollText],
-    ["Notifications", "notifications", Bell],
-    ["Profile", "profile", UserRound],
     {
       group: "Overview",
       items: [["Dashboard", "", LayoutDashboard]],
@@ -208,7 +151,7 @@ export const navigationGroups = {
   ],
 };
 
-// Flattened navigation array per role for backwards compatibility with routes
+// Flattened navigation for router compatibility
 export const navigation = {
   trainee: navigationGroups.trainee.flatMap((g) => g.items),
   trainer: navigationGroups.trainer.flatMap((g) => g.items),

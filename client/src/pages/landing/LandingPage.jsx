@@ -3,24 +3,15 @@ import { Link } from "react-router-dom";
 import {
   ArrowRight,
   BookOpen,
-  ClipboardList,
-  ClipboardCheck,
   GraduationCap,
   Presentation,
   ShieldCheck,
   FileCheck2,
   BrainCircuit,
-  CheckCircle2,
   Sparkles,
 } from "lucide-react";
 
 export default function LandingPage() {
-  const steps = [
-    "Identify training need",
-    "Review and approve need",
-    "Assign learning path",
-    "Check eligibility",
-    "Nominate and confirm admission",
   const [activeTab, setActiveTab] = useState(0);
 
   const previewSteps = [
@@ -60,30 +51,18 @@ export default function LandingPage() {
 
   return (
     <>
-      <section className="hero institutional-hero">
       <section className="hero">
         <div className="hero-copy">
-          <p className="eyebrow">
-            METEOROLOGICAL TRAINING AND CAPACITY BUILDING
-          </p>
           <p className="eyebrow">Capacity Building & Competency Assurance</p>
           <h1>
-            Structured learning decisions.
-            <br />
-            <span>Traceable training journeys.</span>
             Turn training needs into <span>demonstrated capability.</span>
           </h1>
           <p>
-            SAMARTHYA connects professional-role requirements, competency
-            records, training needs, learning paths, course nominations and
-            batch admission.
             Connect role requirements, relevant learning, suitable trainers and
             reviewed evidence in one traceable training journey.
           </p>
-          <div className="flex gap-4 flex-wrap">
           <div className="flex gap-3 flex-wrap">
             <Link className="button button-primary" to="/login">
-              Sign in <ArrowRight size={17} />
               Sign in <ArrowRight size={16} />
             </Link>
             <Link className="button button-secondary" to="/register">
@@ -91,14 +70,9 @@ export default function LandingPage() {
             </Link>
           </div>
           <p className="context-note">
-            Demonstration environment using clearly labelled synthetic records.
             Demonstration environment with clearly labelled synthetic records.
           </p>
         </div>
-        <div className="journey-visual">
-          <div className="visual-heading">
-            <span>CAPACITY-BUILDING WORKFLOW</span>
-            <ClipboardList size={20} />
 
         <div className="product-preview-card" aria-label="Product preview">
           <div className="preview-card-header">
@@ -110,22 +84,6 @@ export default function LandingPage() {
             </div>
             <span className="demo-label">Illustrative example</span>
           </div>
-          <ol>
-            {steps.map((step, index) => (
-              <li key={step}>
-                <span className="step-number">0{index + 1}</span>
-                <div>
-                  <strong>{step}</strong>
-                  <small>
-                    {
-                      [
-                        "Record a known gap, missing evidence or justified request.",
-                        "A coordinator reviews the stated development goal.",
-                        "Published course steps explain why they were selected.",
-                        "Pinned batch rules produce an eligibility checklist.",
-                        "A human decision allocates a seat without overbooking.",
-                      ][index]
-                    }
 
           <div className="preview-card-body">
             {previewSteps.map((step, idx) => (
@@ -156,58 +114,23 @@ export default function LandingPage() {
                     {step.note}
                   </small>
                 </div>
-                {index < steps.length - 1 && (
-                  <span className="flow-connector" />
-                )}
-              </li>
               </div>
             ))}
-          </ol>
           </div>
         </div>
       </section>
 
       <section id="platform" className="landing-section">
         <div className="section-intro">
-          <p className="eyebrow">THE PLATFORM</p>
-          <h2>Information first, with a clear decision trail.</h2>
           <p className="eyebrow">Platform Capabilities</p>
           <h2>Information first, with an auditable decision trail.</h2>
           <p>
-            Part 2 supports the journey through confirmed admission. Competency
-            verification and assessment workflows remain separate future
-            capabilities.
             From diagnostic gap identification to evidence-backed decisions,
             SAMARTHYA guarantees transparency and role-specific clarity.
           </p>
         </div>
 
         <div className="feature-grid">
-          {[
-            [
-              BookOpen,
-              "Versioned rules",
-              "Active batches keep their approved rule version.",
-            ],
-            [
-              ClipboardList,
-              "Explainable eligibility",
-              "Each check names its source, outcome and next step.",
-            ],
-            [
-              ShieldCheck,
-              "Controlled admission",
-              "Authorized decisions, capacity safeguards and audit records stay aligned.",
-            ],
-          ].map(([Icon, title, text]) => (
-            <article className="feature" key={title}>
-              <span className="icon-box blue">
-                <Icon size={22} />
-              </span>
-              <h3>{title}</h3>
-              <p>{text}</p>
-            </article>
-          ))}
           <article className="feature">
             <span className="icon-box plum">
               <BookOpen size={20} />
@@ -245,36 +168,11 @@ export default function LandingPage() {
 
       <section id="how-it-works" className="roles-section">
         <div className="section-intro">
-          <p className="eyebrow">ROLE WORKSPACES</p>
-          <h2>Focused access for each responsibility.</h2>
           <p className="eyebrow">Role-Specific Workspaces</p>
           <h2>Purpose-built tools for each participant.</h2>
         </div>
 
         <div className="role-grid">
-          {[
-            [
-              GraduationCap,
-              "Trainee",
-              "Review records, raise needs, follow paths and submit nominations.",
-            ],
-            [
-              Presentation,
-              "Trainer",
-              "Browse published course information and the training calendar.",
-            ],
-            [
-              ShieldCheck,
-              "Admin / Coordinator",
-              "Maintain frameworks, review requests and manage safe batch admission.",
-            ],
-          ].map(([Icon, title, text]) => (
-            <article key={title}>
-              <Icon size={26} />
-              <h3>{title}</h3>
-              <p>{text}</p>
-            </article>
-          ))}
           <article>
             <span className="icon-box plum mb-3">
               <GraduationCap size={22} />
@@ -312,11 +210,6 @@ export default function LandingPage() {
           </article>
         </div>
       </section>
-      <section id="about" className="journey-section">
-        <div>
-          <p className="eyebrow">PRODUCT BOUNDARY</p>
-          <h2>
-            Learning progress and demonstrated competency remain distinct.
 
       <section id="about" className="landing-section">
         <div className="card text-center p-8 bg-surface border border-border">
@@ -324,9 +217,6 @@ export default function LandingPage() {
           <h2 className="text-2xl font-bold text-plum-900 mt-2 mb-3">
             Join the SAMARTHYA platform today
           </h2>
-          <p>
-            The workflow and synthetic thresholds shown here are proposed
-            application rules to be validated with domain stakeholders.
           <p className="text-sm text-ivory-700 max-w-lg mx-auto mb-6">
             Access your personalized role workspace, review institutional
             competencies, and build demonstrated capability.
@@ -340,9 +230,6 @@ export default function LandingPage() {
             </Link>
           </div>
         </div>
-        <Link to="/register" className="button button-light">
-          Get started <ArrowRight size={17} />
-        </Link>
       </section>
     </>
   );
