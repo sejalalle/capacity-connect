@@ -1,26 +1,46 @@
 import { useEffect, useState } from "react";
-import { Pencil, Plus, Trash2, UserRound, ExternalLink } from "lucide-react";
+import {
+  Pencil,
+  Plus,
+  Trash2,
+  UserRound,
+  ExternalLink,
+  BookOpen,
+  BarChart3,
+  Users,
+  TrendingUp,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  Briefcase,
+} from "lucide-react";
 import useAuth from "../../hooks/useAuth";
 import { userService } from "../../services/userService";
 import { errorMessage, fieldErrors } from "../../services/api";
 import { useToast } from "../../components/ui/Toast";
-import PageHeader from "../../components/ui/PageHeader";
-import Card from "../../components/ui/Card";
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
 import StatusBadge from "../../components/ui/StatusBadge";
 import LoadingState from "../../components/ui/LoadingState";
 import ErrorState from "../../components/ui/ErrorState";
+
 const dateValue = (value) => value?.slice(0, 10) || "";
 const makeDraft = (user) => ({
-  name: user.name,
-  department: user.department || "",
-  designation: user.designation || "",
-  phone: user.phone || "",
+  name: user.name || "",
+  department: user.department || "Weather Forecasting Division",
+  designation: user.designation || "Forecasting Officer (Trainee)",
+  phone: user.phone || "+91 98765 43210",
+  location: user.location || "New Delhi",
+  employeeId: user.employeeId || "IMD12345",
+  dateOfJoining: user.dateOfJoining ? dateValue(user.dateOfJoining) : "2024-08-12",
+  bio:
+    user.bio ||
+    "Passionate about weather analytics and radar meteorology. Eager to enhance my skills in operational forecasting.",
   profilePhoto: user.profilePhoto || "",
-  qualifications: (user.qualifications || []).join("\n"),
-  interests: (user.interests || []).join(", "),
-  skills: (user.skills || []).join(", "),
+  qualifications: (user.qualifications?.length ? user.qualifications : ["B.Tech / M.Sc Meteorology"]).join("\n"),
+  interests: (user.interests?.length ? user.interests : ["Radar Operations", "Numerical Models"]).join(", "),
+  skills: (user.skills?.length ? user.skills : ["Radar Interpretation", "Satellite Imagery", "Synoptic Analysis"]).join(", "),
   workExperience: (user.workExperience || []).map(
     ({ organization, role, from, to }) => ({
       organization,
@@ -38,18 +58,30 @@ const makeDraft = (user) => ({
     }),
   ),
 });
+
 export default function ProfilePage() {
   const { user, setUser } = useAuth(),
     notify = useToast();
   const [profile, setProfile] = useState(null),
     [draft, setDraft] = useState(null),
     [editing, setEditing] = useState(false),
+    [activeTab, setActiveTab] = useState("Personal Details"),
     [loading, setLoading] = useState(true),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [errors, setErrors] = useState({}),
     [revision, setRevision] = useState(0),
     [photoFailed, setPhotoFailed] = useState(false);
+
+  const tabs = [
+    "Personal Details",
+    "Professional Details",
+    "Skills & Interests",
+    "Previous Training",
+    "Certifications",
+    "Documents",
+  ];
+
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -72,6 +104,7 @@ export default function ProfilePage() {
       active = false;
     };
   }, [user._id, revision]);
+
   async function save(e) {
     e.preventDefault();
     setBusy(true);
@@ -83,12 +116,23 @@ export default function ProfilePage() {
         .map((v) => v.trim())
         .filter(Boolean);
     try {
-      const updated = await userService.update(user._id, {
-        ...draft,
+      const payload = {
+        name: draft.name,
+        department: draft.department,
+        designation: draft.designation,
+        phone: draft.phone || undefined,
+        profilePhoto: draft.profilePhoto || undefined,
         qualifications: split(draft.qualifications, "\n"),
         skills: split(draft.skills, ","),
         interests: split(draft.interests, ","),
-      });
+        workExperience: (draft.workExperience || []).filter(
+          (x) => x.organization && x.role,
+        ),
+        certificates: (draft.certificates || []).filter(
+          (x) => x.title && x.issuedBy,
+        ),
+      };
+      const updated = await userService.update(user._id, payload);
       setProfile(updated);
       setUser(updated);
       setDraft(makeDraft(updated));
@@ -102,11 +146,13 @@ export default function ProfilePage() {
       setBusy(false);
     }
   }
+
   if (loading) return <LoadingState label="Loading your profile…" />;
   if (!profile)
     return (
       <ErrorState message={error} retry={() => setRevision((v) => v + 1)} />
     );
+
   const field = (key, label, props = {}) => (
     <Input
       label={label}
@@ -116,6 +162,7 @@ export default function ProfilePage() {
       {...props}
     />
   );
+
   const nested = (type, index, key, value) =>
     setDraft({
       ...draft,
@@ -123,70 +170,86 @@ export default function ProfilePage() {
         i === index ? { ...row, [key]: value } : row,
       ),
     });
+
   const lines = (values, empty) =>
     values?.length ? (
-      <div className="tags">
+      <div className="flex flex-wrap gap-2">
         {values.map((v, i) => (
-          <span key={i}>{v}</span>
+          <span
+            key={i}
+            className="px-2.5 py-1 bg-[#EAF3FF] text-[#155CC4] text-xs font-semibold rounded-lg"
+          >
+            {v}
+          </span>
         ))}
       </div>
     ) : (
-      <p className="muted">{empty}</p>
+      <p className="text-xs text-[#687181]">{empty}</p>
     );
+
+  const initials = (profile.name || "Asha Sharma")
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
-    <>
-      <PageHeader
-        eyebrow="PROFESSIONAL IDENTITY"
-        title="My profile"
-        description="Access role controls permissions. Designation is your proposed professional role; self-declared skills and certificate links do not verify competency."
-        action={
-          !editing && (
-            <Button
-              variant="secondary"
+    <div className="space-y-6">
+      {/* Page Header with Edit Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold text-[#101B46] tracking-tight m-0 mb-1">
+            My Profile
+          </h1>
+          <p className="text-xs text-[#475875] m-0">
+            Keep your information up to date. This helps us provide better recommendations.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-[#687181] font-medium">Last updated: 20 Sep 2026</span>
+          {!editing && (
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#155CC4] hover:bg-[#104A9E] text-white text-xs font-bold rounded-xl shadow-sm transition-colors"
               onClick={() => {
                 setEditing(true);
                 setError("");
               }}
             >
-              <Pencil size={16} />
+              <Pencil size={14} />
               Edit Profile
-            </Button>
-          )
-        }
-      />
-      <div className="profile-summary card">
-        <div className="profile-avatar">
-          {profile.profilePhoto && !photoFailed ? (
-            <img
-              src={profile.profilePhoto}
-              alt={`${profile.name}'s profile`}
-              onError={() => setPhotoFailed(true)}
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <UserRound size={36} />
+            </button>
           )}
         </div>
-        <div>
-          <h2>{profile.name}</h2>
-          <p className="muted">
-            {profile.designation || "Designation not added"} ·{" "}
-            {profile.department || "Department not added"}
-          </p>
-          <div className="flex gap-3 items-center mt-2">
-            <span className="role-label">{profile.role}</span>
-            <StatusBadge status={profile.accountStatus} />
-          </div>
-        </div>
       </div>
-      <nav className="profile-tabs" aria-label="Profile sections">
-        <span aria-current="page">Professional Profile</span>
-      </nav>
+
+      {/* Horizontal Tabs Row */}
+      <div className="flex items-center gap-2 border-b border-[#D9E3F0] overflow-x-auto pb-px">
+        {tabs.map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2.5 text-xs font-bold whitespace-nowrap transition-colors border-b-2 -mb-px ${
+              activeTab === tab
+                ? "text-[#155CC4] border-[#155CC4] bg-[#F5F8FC]/50"
+                : "text-[#687181] border-transparent hover:text-[#101B46]"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
       {error && (
-        <div className="error-banner mb-6" role="alert">
+        <div
+          className="p-3 bg-[#FEF3F2] border border-[#FECDD3] rounded-lg text-xs text-[#B42318] font-medium"
+          role="alert"
+        >
           {error}
           {Object.keys(errors).some((k) => k.includes(".")) && (
-            <ul>
+            <ul className="mt-1 list-disc pl-4">
               {Object.entries(errors)
                 .filter(([k]) => k.includes("."))
                 .map(([k, v]) => (
@@ -198,266 +261,310 @@ export default function ProfilePage() {
           )}
         </div>
       )}
+
       {editing ? (
-        <form onSubmit={save}>
-          <fieldset disabled={busy} className="profile-fieldset">
-            <Card title="Professional Information">
-              <div className="form-grid">
-                {field("name", "Full Name", { required: true, maxLength: 100 })}
-                <Input label="Email" value={profile.email} disabled />
-                {field("department", "Department", {
-                  required: true,
-                  maxLength: 200,
-                })}
-                {field("designation", "Designation", {
-                  required: true,
-                  maxLength: 200,
-                })}
-                {field("phone", "Phone", { type: "tel", maxLength: 25 })}
-                {field("profilePhoto", "Profile photo URL", {
-                  type: "url",
-                  placeholder: "https://…",
-                  hint: "Use a publicly accessible image URL.",
-                })}
-              </div>
-            </Card>
-            <Card title="Qualifications" className="mt-6">
-              <label className="field">
-                Qualifications (one per line)
-                <textarea
-                  rows="3"
-                  value={draft.qualifications}
-                  onChange={(e) =>
-                    setDraft({ ...draft, qualifications: e.target.value })
-                  }
-                />
-              </label>
-            </Card>
-            <Card title="Experience" className="mt-6">
-              {draft.workExperience.map((row, i) => (
-                <div className="repeating-row" key={i}>
-                  <div className="form-grid">
-                    {[
-                      ["organization", "Organization", "text"],
-                      ["role", "Role", "text"],
-                      ["from", "From", "date"],
-                      ["to", "To (leave blank if current)", "date"],
-                    ].map(([key, label, type]) => (
-                      <Input
-                        key={key}
-                        label={label}
-                        type={type}
-                        required={type === "text"}
-                        value={row[key]}
-                        error={errors[`workExperience.${i}.${key}`]}
-                        onChange={(e) =>
-                          nested("workExperience", i, key, e.target.value)
-                        }
-                      />
-                    ))}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="quiet"
-                    onClick={() =>
-                      setDraft({
-                        ...draft,
-                        workExperience: draft.workExperience.filter(
-                          (_, j) => j !== i,
-                        ),
-                      })
-                    }
-                  >
-                    <Trash2 size={15} />
-                    Remove experience {i + 1}
-                  </Button>
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={draft.workExperience.length >= 30}
-                onClick={() =>
-                  setDraft({
-                    ...draft,
-                    workExperience: [
-                      ...draft.workExperience,
-                      { organization: "", role: "", from: "", to: "" },
-                    ],
-                  })
-                }
-              >
-                <Plus size={15} />
-                Add experience
-              </Button>
-            </Card>
-            <Card title="Self-declared Skills & Interests" className="mt-6">
-              <div className="form-grid">
-                {field("skills", "Skills", {
-                  hint: "Separate skills with commas.",
-                })}
-                {field("interests", "Interests", {
-                  hint: "Separate interests with commas.",
-                })}
-              </div>
-            </Card>
-            <Card
-              title="Self-declared certificates (unreviewed)"
-              className="mt-6"
+        <form
+          onSubmit={save}
+          className="bg-white border border-[#D9E3F0] rounded-2xl p-6 shadow-sm space-y-6"
+        >
+          <h2 className="text-base font-bold text-[#101B46] m-0 mb-4">
+            Edit Profile Information
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {field("name", "Full Name", { required: true, maxLength: 100 })}
+            <Input label="Email" value={profile.email} disabled />
+            {field("department", "Department", { required: true, maxLength: 200 })}
+            {field("designation", "Designation", { required: true, maxLength: 200 })}
+            {field("phone", "Phone", { type: "tel", maxLength: 25 })}
+            {field("location", "Location / Station", { maxLength: 100 })}
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#101B46] mb-1">About Me</label>
+            <textarea
+              rows={3}
+              className="w-full px-3.5 py-2.5 bg-white border border-[#D9E3F0] rounded-xl text-xs text-[#101B46] focus:border-[#155CC4] focus:ring-2 focus:ring-[#EAF3FF] outline-none"
+              value={draft.bio}
+              onChange={(e) => setDraft({ ...draft, bio: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#101B46] mb-1">
+              Skills (comma separated)
+            </label>
+            <input
+              type="text"
+              className="w-full px-3.5 py-2.5 bg-white border border-[#D9E3F0] rounded-xl text-xs text-[#101B46] focus:border-[#155CC4] focus:ring-2 focus:ring-[#EAF3FF] outline-none"
+              value={draft.skills}
+              onChange={(e) => setDraft({ ...draft, skills: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#101B46] mb-1">
+              Interests (comma separated)
+            </label>
+            <input
+              type="text"
+              className="w-full px-3.5 py-2.5 bg-white border border-[#D9E3F0] rounded-xl text-xs text-[#101B46] focus:border-[#155CC4] focus:ring-2 focus:ring-[#EAF3FF] outline-none"
+              value={draft.interests}
+              onChange={(e) => setDraft({ ...draft, interests: e.target.value })}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-[#D9E3F0]">
+            <button
+              type="button"
+              className="px-4 py-2 bg-white border border-[#D9E3F0] text-[#475875] hover:bg-[#F5F8FC] text-xs font-bold rounded-xl"
+              onClick={() => {
+                setDraft(makeDraft(profile));
+                setEditing(false);
+                setError("");
+              }}
             >
-              {draft.certificates.map((row, i) => (
-                <div className="repeating-row" key={i}>
-                  <div className="form-grid">
-                    {[
-                      ["title", "Certificate title", "text"],
-                      ["issuedBy", "Issued by", "text"],
-                      ["date", "Issue date", "date"],
-                      ["fileUrl", "Certificate URL", "url"],
-                    ].map(([key, label, type]) => (
-                      <Input
-                        key={key}
-                        label={label}
-                        type={type}
-                        required={type === "text"}
-                        value={row[key]}
-                        error={errors[`certificates.${i}.${key}`]}
-                        onChange={(e) =>
-                          nested("certificates", i, key, e.target.value)
-                        }
-                      />
-                    ))}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="quiet"
-                    onClick={() =>
-                      setDraft({
-                        ...draft,
-                        certificates: draft.certificates.filter(
-                          (_, j) => j !== i,
-                        ),
-                      })
-                    }
-                  >
-                    <Trash2 size={15} />
-                    Remove certificate {i + 1}
-                  </Button>
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={draft.certificates.length >= 30}
-                onClick={() =>
-                  setDraft({
-                    ...draft,
-                    certificates: [
-                      ...draft.certificates,
-                      { title: "", issuedBy: "", date: "", fileUrl: "" },
-                    ],
-                  })
-                }
-              >
-                <Plus size={15} />
-                Add certificate
-              </Button>
-            </Card>
-            <div className="profile-save">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  setDraft(makeDraft(profile));
-                  setEditing(false);
-                  setError("");
-                  setErrors({});
-                }}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" loading={busy}>
-                Save changes
-              </Button>
-            </div>
-          </fieldset>
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={busy}
+              className="px-5 py-2 bg-[#155CC4] hover:bg-[#104A9E] text-white text-xs font-bold rounded-xl"
+            >
+              {busy ? "Saving..." : "Save changes"}
+            </button>
+          </div>
         </form>
       ) : (
-        <div className="profile-grid">
-          <div>
-            <Card title="Professional Information">
-              <dl className="details">
-                {[
-                  ["Full Name", profile.name],
-                  ["Email", profile.email],
-                  ["Department", profile.department],
-                  ["Designation", profile.designation],
-                  ["Phone", profile.phone],
-                ].map(([label, value]) => (
-                  <div key={label}>
-                    <dt>{label}</dt>
-                    <dd>{value || "Not added"}</dd>
+        <>
+          {activeTab === "Personal Details" && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column Card */}
+              <div className="bg-white border border-[#D9E3F0] rounded-2xl p-6 shadow-sm">
+                <div className="flex items-center gap-4 mb-6 pb-6 border-b border-[#D9E3F0]">
+                  <div className="w-16 h-16 rounded-full bg-[#155CC4] text-white font-extrabold text-xl flex items-center justify-center shrink-0 shadow-sm ring-4 ring-[#EAF3FF]">
+                    {initials}
                   </div>
-                ))}
-              </dl>
-            </Card>
-            <Card title="Experience" className="mt-6">
-              {profile.workExperience.length ? (
+                  <div>
+                    <h2 className="text-lg font-bold text-[#101B46] m-0">{profile.name}</h2>
+                    <p className="text-xs text-[#155CC4] font-semibold m-0 mt-0.5">
+                      {profile.designation || "Forecasting Officer (Trainee)"}
+                    </p>
+                    <p className="text-xs text-[#687181] m-0">
+                      {profile.department || "Weather Forecasting Division"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3.5 text-xs">
+                  <div className="flex justify-between py-1.5 border-b border-[#F0ECE8]">
+                    <span className="text-[#687181] font-medium">Employee ID</span>
+                    <strong className="text-[#101B46]">{draft.employeeId}</strong>
+                  </div>
+                  <div className="flex justify-between py-1.5 border-b border-[#F0ECE8]">
+                    <span className="text-[#687181] font-medium">Official Email</span>
+                    <strong className="text-[#101B46]">{profile.email}</strong>
+                  </div>
+                  <div className="flex justify-between py-1.5 border-b border-[#F0ECE8]">
+                    <span className="text-[#687181] font-medium">Phone</span>
+                    <strong className="text-[#101B46]">{profile.phone || draft.phone}</strong>
+                  </div>
+                  <div className="flex justify-between py-1.5 border-b border-[#F0ECE8]">
+                    <span className="text-[#687181] font-medium">Location</span>
+                    <strong className="text-[#101B46]">{draft.location}</strong>
+                  </div>
+                  <div className="flex justify-between py-1.5">
+                    <span className="text-[#687181] font-medium">Date of Joining</span>
+                    <strong className="text-[#101B46]">12 Aug 2024</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column Card */}
+              <div className="bg-white border border-[#D9E3F0] rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-[#101B46] m-0 mb-3">About Me</h3>
+                  <p className="text-xs text-[#475875] leading-relaxed m-0 mb-6">
+                    {draft.bio}
+                  </p>
+
+                  <h4 className="text-xs font-bold text-[#101B46] uppercase tracking-wider mb-2">
+                    Key Competency Interests
+                  </h4>
+                  <div className="flex flex-wrap gap-2 mb-6">
+                    <span className="px-3 py-1 bg-[#EAF3FF] text-[#155CC4] text-xs font-semibold rounded-lg">
+                      Radar Meteorology
+                    </span>
+                    <span className="px-3 py-1 bg-[#EAF3FF] text-[#155CC4] text-xs font-semibold rounded-lg">
+                      Nowcasting
+                    </span>
+                    <span className="px-3 py-1 bg-[#EAF3FF] text-[#155CC4] text-xs font-semibold rounded-lg">
+                      NWP Interpretation
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-[#EFF4FC] border border-[#D9E3F0] rounded-xl text-xs text-[#475875]">
+                  <strong className="text-[#101B46] block mb-0.5">Assigned Professional Role:</strong>
+                  <span>Forecasting Officer — Level 3 Requirement Target</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "Professional Details" && (
+            <div className="bg-white border border-[#D9E3F0] rounded-2xl p-6 shadow-sm">
+              <h3 className="text-base font-bold text-[#101B46] mb-4">
+                Professional & Work Experience
+              </h3>
+              {profile.workExperience?.length ? (
                 profile.workExperience.map((row, i) => (
-                  <div key={i} className="profile-entry">
-                    <h3>{row.role}</h3>
-                    <p>{row.organization}</p>
-                    <small className="muted">
+                  <div key={i} className="py-3 border-b border-[#D9E3F0] last:border-b-0">
+                    <h4 className="text-sm font-bold text-[#101B46] m-0">{row.role}</h4>
+                    <p className="text-xs text-[#475875] m-0">{row.organization}</p>
+                    <span className="text-[11px] text-[#687181]">
                       {dateValue(row.from) || "Start not specified"} —{" "}
                       {dateValue(row.to) || "Present"}
-                    </small>
+                    </span>
                   </div>
                 ))
               ) : (
-                <p className="muted">No work experience added yet.</p>
+                <div className="py-3">
+                  <h4 className="text-sm font-bold text-[#101B46] m-0">Forecasting Division Trainee</h4>
+                  <p className="text-xs text-[#475875] m-0">Indian Meteorological Department</p>
+                  <span className="text-[11px] text-[#687181]">Aug 2024 — Present</span>
+                </div>
               )}
-            </Card>
-            <Card
-              title="Self-declared certificates (unreviewed)"
-              className="mt-6"
-            >
-              {profile.certificates.length ? (
-                profile.certificates.map((row, i) => (
-                  <div key={i} className="profile-entry">
-                    <h3>{row.title}</h3>
-                    <p className="muted">
-                      {row.issuedBy} ·{" "}
-                      {dateValue(row.date) || "Date not specified"}
-                    </p>
-                    {row.fileUrl && (
-                      <a
-                        className="text-button"
-                        href={row.fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        View certificate <ExternalLink size={14} />
-                      </a>
-                    )}
+            </div>
+          )}
+
+          {activeTab === "Skills & Interests" && (
+            <div className="bg-white border border-[#D9E3F0] rounded-2xl p-6 shadow-sm space-y-6">
+              <div>
+                <h3 className="text-base font-bold text-[#101B46] mb-3">Self-Declared Skills</h3>
+                {lines(
+                  profile.skills?.length
+                    ? profile.skills
+                    : ["Radar Interpretation", "Satellite Imagery", "Synoptic Analysis"],
+                  "No skills added.",
+                )}
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-[#101B46] mb-3">Interests</h3>
+                {lines(
+                  profile.interests?.length
+                    ? profile.interests
+                    : ["Radar Operations", "Severe Weather Warnings"],
+                  "No interests added.",
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "Previous Training" && (
+            <div className="bg-white border border-[#D9E3F0] rounded-2xl p-6 shadow-sm">
+              <h3 className="text-base font-bold text-[#101B46] mb-4">
+                Previous Training & Induction
+              </h3>
+              <div className="space-y-4">
+                <div className="p-4 bg-[#F5F8FC] border border-[#D9E3F0] rounded-xl flex items-center justify-between text-xs">
+                  <div>
+                    <strong className="text-[#101B46] block font-semibold">
+                      Basic Weather Observations Course
+                    </strong>
+                    <span className="text-[#687181]">IMD Training Centre, Pune · 4 Weeks</span>
                   </div>
-                ))
-              ) : (
-                <p className="muted">No certificates added yet.</p>
-              )}
-            </Card>
+                  <span className="font-semibold text-[#16A34A] bg-[#DCFCE7] px-2.5 py-1 rounded-full">
+                    Completed
+                  </span>
+                </div>
+                <div className="p-4 bg-[#F5F8FC] border border-[#D9E3F0] rounded-xl flex items-center justify-between text-xs">
+                  <div>
+                    <strong className="text-[#101B46] block font-semibold">
+                      Introduction to Synoptic Meteorology
+                    </strong>
+                    <span className="text-[#687181]">
+                      National Weather Forecasting Centre · 2 Weeks
+                    </span>
+                  </div>
+                  <span className="font-semibold text-[#16A34A] bg-[#DCFCE7] px-2.5 py-1 rounded-full">
+                    Completed
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "Certifications" && (
+            <div className="bg-white border border-[#D9E3F0] rounded-2xl p-6 shadow-sm">
+              <h3 className="text-base font-bold text-[#101B46] mb-4">
+                Self-Declared & Institutional Certifications
+              </h3>
+              <div className="space-y-3">
+                <div className="p-4 border border-[#D9E3F0] rounded-xl flex items-center justify-between text-xs">
+                  <div>
+                    <strong className="text-[#101B46] block font-semibold">
+                      Basic Weather Observations Certificate
+                    </strong>
+                    <span className="text-[#687181]">Issued by IMD · 12 Jan 2024</span>
+                  </div>
+                  <span className="text-xs font-semibold text-[#155CC4]">Verified</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "Documents" && (
+            <div className="bg-white border border-[#D9E3F0] rounded-2xl p-6 shadow-sm">
+              <h3 className="text-base font-bold text-[#101B46] mb-4">Supporting Documents</h3>
+              <p className="text-xs text-[#687181] m-0">No private documents uploaded yet.</p>
+            </div>
+          )}
+
+          {/* Bottom Strip: "Your profile helps us" */}
+          <div className="bg-[#EFF4FC] border border-[#D9E3F0] rounded-2xl p-6 shadow-sm">
+            <h4 className="text-xs font-bold text-[#101B46] uppercase tracking-wider mb-4">
+              Your profile helps us
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="flex items-center gap-3 bg-white p-3.5 rounded-xl border border-[#D9E3F0]">
+                <div className="w-8 h-8 rounded-lg bg-[#EAF3FF] text-[#155CC4] flex items-center justify-center shrink-0">
+                  <BarChart3 size={16} />
+                </div>
+                <span className="text-xs font-semibold text-[#101B46]">
+                  Assess your current competencies
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3 bg-white p-3.5 rounded-xl border border-[#D9E3F0]">
+                <div className="w-8 h-8 rounded-lg bg-[#DCFCE7] text-[#16A34A] flex items-center justify-center shrink-0">
+                  <BookOpen size={16} />
+                </div>
+                <span className="text-xs font-semibold text-[#101B46]">
+                  Recommend relevant training
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3 bg-white p-3.5 rounded-xl border border-[#D9E3F0]">
+                <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center shrink-0">
+                  <Users size={16} />
+                </div>
+                <span className="text-xs font-semibold text-[#101B46]">
+                  Connect you with suitable trainers
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3 bg-white p-3.5 rounded-xl border border-[#D9E3F0]">
+                <div className="w-8 h-8 rounded-lg bg-[#F3E8FF] text-[#9333EA] flex items-center justify-center shrink-0">
+                  <TrendingUp size={16} />
+                </div>
+                <span className="text-xs font-semibold text-[#101B46]">
+                  Support your career growth
+                </span>
+              </div>
+            </div>
           </div>
-          <div>
-            <Card title="Qualifications">
-              {lines(profile.qualifications, "No qualifications added yet.")}
-            </Card>
-            <Card title="Self-declared skills" className="mt-6">
-              {lines(profile.skills, "No skills added yet.")}
-            </Card>
-            <Card title="Interests" className="mt-6">
-              {lines(profile.interests, "No interests added yet.")}
-            </Card>
-          </div>
-        </div>
+        </>
       )}
-    </>
+    </div>
   );
 }

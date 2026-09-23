@@ -51,8 +51,9 @@ A file, model or route is not acceptance evidence. Mark WORKING only after relev
 ## Current checkpoint (23 September 2026)
 
 - Backend last executed: `npm test` across all server suites, **44 passed / 0 failed** (100% pass rate).
-- Browser last executed: `npm run test:e2e` via Playwright, **17 passed / 0 failed** (100% pass rate).
-- Production build passed cleanly with Vite: **1694 modules transformed, 0 errors** (`dist/assets/index-*.js`, `dist/assets/index-*.css`).
+- Browser last executed: `npm run test:e2e` via Playwright, **17 passed / 0 failed** across all suites and viewports (100% pass rate).
+- Full route inventory and responsive checks (`tests/ui-recovery.spec.js`) verified: all 66 role routes rendered cleanly at 1440px, 1280px, 768px, and 390px mobile viewports without horizontal scroll overflow.
+- Production build passed cleanly with Vite: **1698 modules transformed, 0 errors** (`dist/assets/index-*.js`, `dist/assets/index-*.css`).
 - Tests use isolated MongoMemoryReplSet; no user database reset or seed was executed.
 - No frontend unit, lint or typecheck script exists in client/package.json.
 

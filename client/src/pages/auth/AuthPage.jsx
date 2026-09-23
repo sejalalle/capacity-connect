@@ -1,34 +1,45 @@
 import { useCallback, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, CheckCircle2, ShieldCheck } from "lucide-react";
-import Brand from "../../components/ui/Brand";
-import Button from "../../components/ui/Button";
-import Input from "../../components/ui/Input";
-
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  BookOpen,
+  BarChart3,
+  Users,
+} from "lucide-react";
+import Brand, { AshokaEmblem } from "../../components/ui/Brand";
+import VerticalDecorativeTag from "../../components/ui/VerticalDecorativeTag";
+import { ObservatoryGraphic } from "../../components/ui/QuoteCallout";
 import Modal from "../../components/ui/Modal";
+import Input from "../../components/ui/Input";
+import Button from "../../components/ui/Button";
 import useAuth from "../../hooks/useAuth";
 import { authService } from "../../services/authService";
 import { errorMessage, fieldErrors } from "../../services/api";
 
 export default function AuthPage({ register = false }) {
-  const { user, login } = useAuth(),
-    navigate = useNavigate();
+  const { user, login } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialRole = searchParams.get("role") || "trainee";
+
   const [values, setValues] = useState({
     name: "",
     email: "",
     password: "",
     confirmPassword: "",
-    role: "trainee",
+    role: initialRole,
     department: "",
     designation: "",
     phone: "",
   });
-  const [errors, setErrors] = useState({}),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false),
-    [success, setSuccess] = useState(false),
-    [remember, setRemember] = useState(false),
-    [forgot, setForgot] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [remember, setRemember] = useState(false);
+  const [forgot, setForgot] = useState(false);
 
   const close = useCallback(() => setForgot(false), []);
 
@@ -37,6 +48,7 @@ export default function AuthPage({ register = false }) {
   const field = (key, label, props = {}) => (
     <Input
       label={label}
+      id={key}
       name={key}
       value={values[key]}
       error={errors[key]}
@@ -93,79 +105,120 @@ export default function AuthPage({ register = false }) {
   }
 
   return (
-    <div className="auth-page">
-      <aside className="auth-story">
-        <Brand />
+    <div className="min-h-screen bg-[#F5F8FC] flex flex-col lg:flex-row">
+      {/* Left Story / Graphic Panel */}
+      <div className="w-full lg:w-[42%] bg-[#EFF4FC] border-r border-[#D9E3F0] p-6 lg:p-12 flex flex-col justify-between relative overflow-hidden">
         <div>
-          <p className="eyebrow">Capacity Building Platform</p>
-          <h1>
-            Professional learning with <span>measurable outcomes.</span>
-          </h1>
-          <p>
-            A meteorological learning and competency development platform.
-            Connect role requirements, learning and human-reviewed evidence.
-          </p>
-          <div className="auth-principle">
-            <ShieldCheck size={22} className="text-copper-600" />
-            <div>
-              <strong className="block text-ivory-900 font-semibold">
-                Traceable Role Workspaces
-              </strong>
-              <span className="text-ivory-700 text-xs">
-                Auditable decision records & access control
-              </span>
+          <div className="flex items-start justify-between">
+            <Brand showTagline />
+            <VerticalDecorativeTag className="hidden sm:flex" />
+          </div>
+
+          <div className="my-8 text-center sm:text-left">
+            <h1 className="text-2xl lg:text-3xl font-extrabold text-[#101B46] tracking-tight mb-2 leading-tight">
+              Building Competent People for a Weather-Ready India
+            </h1>
+            <p className="text-xs text-[#475875]">
+              Connecting role requirements, competency frameworks, and verified evidence.
+            </p>
+          </div>
+
+          <div className="flex justify-center my-6">
+            <ObservatoryGraphic className="w-32 h-32 text-[#155CC4]" />
+          </div>
+
+          <div className="space-y-4 max-w-md mx-auto sm:mx-0">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-white border border-[#D9E3F0] flex items-center justify-center text-[#155CC4] shrink-0">
+                <BookOpen size={16} />
+              </div>
+              <span className="text-xs font-semibold text-[#101B46]">Learn from expert trainers</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-white border border-[#D9E3F0] flex items-center justify-center text-[#155CC4] shrink-0">
+                <BarChart3 size={16} />
+              </div>
+              <span className="text-xs font-semibold text-[#101B46]">Develop real-world skills</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-white border border-[#D9E3F0] flex items-center justify-center text-[#155CC4] shrink-0">
+                <Users size={16} />
+              </div>
+              <span className="text-xs font-semibold text-[#101B46]">Contribute to a safer, more resilient India</span>
             </div>
           </div>
         </div>
-        <small className="text-ivory-700 text-xs">
-          SAMARTHYA Capacity Building Platform · Synthetic Records Demo
-        </small>
-      </aside>
 
-      <main className="auth-main">
-        <div className="mb-4">
-          <Link to="/" className="text-button text-xs">
-            <ArrowLeft size={14} /> Back to platform
-          </Link>
+        <div className="mt-8 pt-4 border-t border-[#D9E3F0] flex justify-between items-center text-[11px] text-[#687181]">
+          <span>INDIAN METEOROLOGICAL DEPARTMENT</span>
+          <span>Ministry of Earth Sciences</span>
         </div>
+      </div>
 
-        <div className="auth-form-wrap">
+      {/* Right Form Panel */}
+      <div className="flex-1 bg-white p-6 lg:p-12 flex flex-col justify-center">
+        <div className="max-w-md mx-auto w-full">
+          <div className="mb-6">
+            <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#155CC4] hover:underline">
+              <ArrowLeft size={14} /> Back to home
+            </Link>
+          </div>
+
           {success ? (
-            <div className="card text-center p-8">
-              <CheckCircle2
-                size={44}
-                className="text-status-success mx-auto mb-3"
-              />
-              <h2 className="text-xl font-bold text-plum-900">
-                Registration Submitted
-              </h2>
-              <p className="text-sm text-ivory-700 mt-2 mb-1">
+            <div className="bg-white border border-[#D9E3F0] rounded-2xl p-8 text-center shadow-sm">
+              <CheckCircle2 size={48} className="text-[#16A34A] mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-[#101B46] mb-2">Registration Submitted</h2>
+              <p className="text-sm text-[#475875] mb-2">
                 Your registration has been submitted for approval.
               </p>
-              <p className="text-xs text-ivory-500 mb-6">
-                You will be able to sign in once your account is approved.
+              <p className="text-xs text-[#687181] mb-6">
+                You will be able to sign in once an administrator approves your account.
               </p>
-              <Link className="button button-primary inline-flex" to="/login">
-                Back to login <ArrowRight size={16} />
+              <Link
+                to="/login"
+                className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-[#155CC4] hover:bg-[#104A9E] text-white text-xs font-bold rounded-xl no-underline"
+              >
+                Back to login <ArrowRight size={14} />
               </Link>
             </div>
           ) : (
-            <div className="card p-8">
-              <p className="eyebrow">
-                {register ? "START YOUR JOURNEY" : "ACCOUNT ACCESS"}
-              </p>
-              <h1 className="text-2xl font-bold text-plum-900 mt-1 mb-2">
-                {register ? "Create your account" : "Welcome back."}
-              </h1>
-              <p className="text-sm text-ivory-700 mb-6">
-                {register
-                  ? "Register for institutional training and capability management."
-                  : "Sign in to access your role workspace."}
-              </p>
+            <div className="bg-white border border-[#D9E3F0] rounded-2xl p-6 sm:p-8 shadow-sm">
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-extrabold text-[#101B46] tracking-tight mb-1">
+                  {register ? "Create your account" : "Welcome back."}
+                </h2>
+                <p className="text-xs text-[#475875]">
+                  {register ? "Register for IMD competency development." : "Sign in to continue your learning journey"}
+                </p>
+              </div>
 
-              <form onSubmit={submit} noValidate className="auth-form">
+              {/* Login / Sign Up Tab Toggle */}
+              <div className="flex border-b border-[#D9E3F0] mb-6">
+                <Link
+                  to="/login"
+                  className={`flex-1 pb-2.5 text-center text-xs font-bold no-underline transition-colors ${
+                    !register
+                      ? "text-[#155CC4] border-b-2 border-[#155CC4]"
+                      : "text-[#687181] hover:text-[#101B46]"
+                  }`}
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/register"
+                  className={`flex-1 pb-2.5 text-center text-xs font-bold no-underline transition-colors ${
+                    register
+                      ? "text-[#155CC4] border-b-2 border-[#155CC4]"
+                      : "text-[#687181] hover:text-[#101B46]"
+                  }`}
+                >
+                  Sign Up
+                </Link>
+              </div>
+
+              <form onSubmit={submit} noValidate className="space-y-4">
                 {error && (
-                  <div className="error-banner" role="alert">
+                  <div className="p-3 bg-[#FEF3F2] border border-[#FECDD3] rounded-lg text-xs text-[#B42318] font-medium" role="alert">
                     {error}
                   </div>
                 )}
@@ -186,20 +239,17 @@ export default function AuthPage({ register = false }) {
                     autoComplete: "email",
                     placeholder: "user@example.test",
                     maxLength: 254,
-                  },
+                  }
                 )}
 
-                <div className={register ? "form-grid" : ""}>
+                <div className={register ? "grid grid-cols-1 sm:grid-cols-2 gap-3" : ""}>
                   {field("password", "Password", {
                     type: "password",
                     required: true,
-                    autoComplete: register
-                      ? "new-password"
-                      : "current-password",
-                    hint: register
-                      ? "Min 10 chars with upper, lower & number."
-                      : undefined,
+                    autoComplete: register ? "new-password" : "current-password",
+                    hint: register ? "Min 10 chars with upper, lower & number." : undefined,
                   })}
+
                   {register &&
                     field("confirmPassword", "Confirm Password", {
                       type: "password",
@@ -210,55 +260,47 @@ export default function AuthPage({ register = false }) {
 
                 {register ? (
                   <>
-                    <fieldset className="role-choices">
-                      <legend>Workspace Role</legend>
-                      <p>
-                        Choose the access you want to request. Account approval
-                        is required.
+                    <fieldset className="p-3 border border-[#D9E3F0] rounded-xl">
+                      <legend className="text-xs font-bold text-[#101B46] px-1">Workspace Role</legend>
+                      <p className="text-[11px] text-[#687181] mb-2">
+                        Choose the access you want to request. Account approval is required.
                       </p>
-                      <div className="form-grid">
-                        {[
-                          [
-                            "trainee",
-                            "Trainee",
-                            "Learn, practise and build reviewed evidence.",
-                          ],
-                          [
-                            "trainer",
-                            "Trainer",
-                            "Create courses and deliver assigned training.",
-                          ],
-                        ].map(([value, title, description]) => (
-                          <label
-                            key={value}
-                            className={
-                              values.role === value
-                                ? "role-choice selected"
-                                : "role-choice"
-                            }
-                          >
-                            <input
-                              type="radio"
-                              name="role"
-                              value={value}
-                              checked={values.role === value}
-                              onChange={() =>
-                                setValues({ ...values, role: value })
-                              }
-                            />
-                            <strong>{title}</strong>
-                            <span>{description}</span>
-                          </label>
-                        ))}
+                      <div className="grid grid-cols-2 gap-3">
+                        <label
+                          className={`flex items-center gap-2 p-2.5 border rounded-lg cursor-pointer text-xs font-semibold ${
+                            values.role === "trainee" ? "border-[#155CC4] bg-[#EAF3FF] text-[#155CC4]" : "border-[#D9E3F0] text-[#475875]"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="role"
+                            value="trainee"
+                            checked={values.role === "trainee"}
+                            onChange={() => setValues({ ...values, role: "trainee" })}
+                            className="text-[#155CC4]"
+                          />
+                          <span>Trainee</span>
+                        </label>
+                        <label
+                          className={`flex items-center gap-2 p-2.5 border rounded-lg cursor-pointer text-xs font-semibold ${
+                            values.role === "trainer" ? "border-[#155CC4] bg-[#EAF3FF] text-[#155CC4]" : "border-[#D9E3F0] text-[#475875]"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="role"
+                            value="trainer"
+                            checked={values.role === "trainer"}
+                            onChange={() => setValues({ ...values, role: "trainer" })}
+                            className="text-[#155CC4]"
+                          />
+                          <span>Trainer</span>
+                        </label>
                       </div>
-                      {errors.role && <p role="alert">{errors.role}</p>}
-                      <p>
-                        Administrator access is provisioned separately.{" "}
-                        <Link to="/login">Sign in to an existing account</Link>.
-                      </p>
+                      {errors.role && <p className="text-[11px] text-[#B42318] mt-1">{errors.role}</p>}
                     </fieldset>
 
-                    <div className="form-grid">
+                    <div className="grid grid-cols-2 gap-3">
                       {field("department", "Department", {
                         required: true,
                         maxLength: 200,
@@ -267,7 +309,7 @@ export default function AuthPage({ register = false }) {
                       {field("designation", "Designation", {
                         required: true,
                         maxLength: 200,
-                        placeholder: "e.g. Meteorologist",
+                        placeholder: "e.g. Officer (Trainee)",
                       })}
                     </div>
 
@@ -278,19 +320,20 @@ export default function AuthPage({ register = false }) {
                     })}
                   </>
                 ) : (
-                  <div className="flex justify-between items-center text-xs">
-                    <label className="checkbox-label">
+                  <div className="flex items-center justify-between text-xs pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer text-[#475875] font-medium select-none">
                       <input
                         type="checkbox"
                         checked={remember}
                         onChange={(e) => setRemember(e.target.checked)}
+                        className="rounded text-[#155CC4] focus:ring-[#155CC4]"
                       />
-                      Remember me
+                      <span>Remember me</span>
                     </label>
                     <button
                       type="button"
-                      className="text-button text-xs"
                       onClick={() => setForgot(true)}
+                      className="text-[#155CC4] font-semibold hover:underline bg-transparent border-0 p-0 cursor-pointer"
                     >
                       Forgot password?
                     </button>
@@ -303,27 +346,48 @@ export default function AuthPage({ register = false }) {
                 </Button>
               </form>
 
-              <div className="auth-switch mt-6">
-                {register
-                  ? "Already have an account?"
-                  : "Don't have an account?"}{" "}
-                <Link to={register ? "/login" : "/register"}>
-                  {register ? "Sign in" : "Create account"}
-                </Link>
-              </div>
+              {!register && (
+                <>
+                  <div className="flex items-center gap-4 my-5">
+                    <div className="flex-1 h-px bg-[#D9E3F0]" />
+                    <span className="text-[11px] text-[#687181] font-semibold uppercase">or</span>
+                    <div className="flex-1 h-px bg-[#D9E3F0]" />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValues({ ...values, email: "asha.sharma@example.test", password: "DemoOnly!2026" });
+                    }}
+                    className="w-full py-2.5 px-4 bg-white hover:bg-[#F5F8FC] border border-[#D9E3F0] text-[#101B46] text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2.5"
+                  >
+                    <AshokaEmblem className="w-4 h-4 text-[#155CC4]" />
+                    <span>Continue with IMD SSO</span>
+                  </button>
+
+                  <p className="text-center text-[11px] text-[#687181] mt-6 mb-0">
+                    Don&apos;t have an account?{" "}
+                    <Link to="/register" className="text-[#155CC4] font-bold hover:underline">
+                      Contact your administrator
+                    </Link>
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>
-      </main>
+      </div>
 
       {forgot && (
         <Modal title="Password Recovery" onClose={close}>
-          <p className="text-sm text-ivory-700 mb-4">
-            For demonstration and security purposes, password reset requests are
-            handled directly by your platform administrator.
+          <p className="text-xs text-[#475875] mb-4">
+            For institutional security, password reset requests are handled directly by your IMD Platform Administrator.
           </p>
-          <div className="modal-actions">
-            <button className="button button-primary" onClick={close}>
+          <div className="flex justify-end">
+            <button
+              onClick={close}
+              className="px-4 py-2 bg-[#155CC4] text-white text-xs font-bold rounded-lg"
+            >
               Close
             </button>
           </div>

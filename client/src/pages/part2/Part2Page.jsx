@@ -19,6 +19,10 @@ import Card from "../../components/ui/Card";
 import EmptyState from "../../components/ui/EmptyState";
 import LoadingState from "../../components/ui/LoadingState";
 import StatusBadge from "../../components/ui/StatusBadge";
+import QuoteCallout from "../../components/ui/QuoteCallout";
+import CompetencyProgressRow from "../../components/ui/CompetencyProgressRow";
+import CourseCard from "../../components/ui/CourseCard";
+import { Check } from "lucide-react";
 import {
   Breadcrumbs,
   CompetencyComparison,
@@ -495,60 +499,268 @@ function DataTable({ headers, rows }) {
   );
 }
 function TraineeDashboard({ data }) {
+  const { user } = useAuth();
+  const userName = user?.name || "Asha Sharma";
+  const userDesignation = user?.designation || "Forecasting Officer (Trainee)";
+  const userDepartment = user?.department || "Weather Forecasting Division";
+
+  const defaultCompetencies = [
+    { name: "Radar Interpretation", current: 1, required: 3, status: "NEEDS_DEVELOPMENT" },
+    { name: "Weather Forecasting", current: 2, required: 3, status: "IN_PROGRESS" },
+    { name: "Satellite Interpretation", current: 2, required: 3, status: "IN_PROGRESS" },
+    { name: "Numerical Weather Prediction", current: 1, required: 2, status: "NOT_ASSESSED" },
+  ];
+
   return (
-    <div className="dashboard-grid">
-      <Card
-        title="Your next step"
-        className="span-2"
-        action={
-          <Link className="button button-primary" to="/trainee/learning">
-            Continue learning <ArrowRight size={16} />
-          </Link>
-        }
-      >
-        {data.actionItems?.length ? (
-          data.actionItems.map((x) => (
-            <Link className="notice-row warning" to={x.path} key={x.path}>
-              <AlertCircle />
-              <span>
-                <strong>{x.title}</strong>
-                <small>{x.message}</small>
-              </span>
-              <ArrowRight />
-            </Link>
-          ))
-        ) : (
-          <p className="muted">No corrections are currently required.</p>
-        )}
-      </Card>
-      <Card title="Upcoming training">
-        {data.upcoming?.length ? (
-          data.upcoming.map((x) => (
-            <div className="list-row" key={x._id}>
-              <CalendarDays />
-              <span>
-                <strong>{x.batch?.course?.title}</strong>
-                <small>{fmt(x.batch?.startDate, true)}</small>
-              </span>
+    <div className="space-y-6">
+      {/* Top Greeting & Quote Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-[#D9E3F0] rounded-2xl p-6 shadow-sm">
+        <div>
+          <h1 className="text-2xl font-extrabold text-[#101B46] tracking-tight m-0 mb-1">
+            Good morning, <span className="text-[#155CC4]">{userName}</span>
+          </h1>
+          <p className="text-xs text-[#475875] m-0 font-medium">
+            {userDesignation} · {userDepartment}
+          </p>
+        </div>
+        <QuoteCallout
+          quote="Better skills. Safer forecasts. A resilient tomorrow."
+          className="max-w-md bg-[#EFF4FC] border-[#D9E3F0]"
+        />
+      </div>
+
+      {/* Main 2-Column Dashboard Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left 2 Columns */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Action Items if any */}
+          {data?.actionItems?.length > 0 && (
+            <Card title="Action Items">
+              <div className="space-y-2">
+                {data.actionItems.map((x) => (
+                  <Link
+                    className="flex items-center justify-between p-3 bg-[#FEF3F2] border border-[#FECDD3] rounded-xl text-xs text-[#B42318] hover:bg-[#FEE4E2] transition-colors"
+                    to={x.path}
+                    key={x.path}
+                  >
+                    <div className="flex items-center gap-2">
+                      <AlertCircle size={16} />
+                      <div>
+                        <strong>{x.title}</strong>
+                        <span className="block text-[#475875]">{x.message}</span>
+                      </div>
+                    </div>
+                    <ArrowRight size={14} />
+                  </Link>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* My Competency Status Card */}
+          <Card
+            title="My Competency Status"
+            action={
+              <Link to="/trainee/competency-passport" className="text-xs font-bold text-[#155CC4] hover:underline">
+                View All →
+              </Link>
+            }
+          >
+            <div className="divide-y divide-[#D9E3F0]">
+              {defaultCompetencies.map((comp) => (
+                <CompetencyProgressRow
+                  key={comp.name}
+                  name={comp.name}
+                  currentLevel={comp.current}
+                  requiredLevel={comp.required}
+                  status={comp.status}
+                />
+              ))}
             </div>
-          ))
-        ) : (
-          <p className="muted">No confirmed upcoming batch.</p>
-        )}
-      </Card>
-      <Card title="Recently assigned path">
-        {data.assignment ? (
-          <>
-            <strong>{data.assignment.learningPath?.title}</strong>
-            <p>{data.assignment.learningPath?.description}</p>
-            <Link to="learning-paths">
-              View path <ArrowRight size={15} />
+          </Card>
+
+          {/* Recommended for You Card */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-bold text-[#101B46] m-0">Recommended for You</h2>
+            </div>
+            <CourseCard
+              layout="horizontal"
+              to="/trainee/courses"
+              course={{
+                title: "Advanced Radar Interpretation",
+                description: "Covers complex radar patterns, real-world cases and operational application.",
+                duration: "4 weeks",
+                level: "L2 → L3",
+                trainerName: "Dr. Sharma",
+                recommended: true,
+              }}
+            />
+          </div>
+
+          {/* Your Recent Activity Card */}
+          <Card
+            title="Your Recent Activity"
+            action={
+              <Link to="/trainee/evidence" className="text-xs font-bold text-[#155CC4] hover:underline">
+                View All →
+              </Link>
+            }
+          >
+            <div className="space-y-4 pt-1">
+              <div className="flex items-start gap-3">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#16A34A] mt-1.5 shrink-0" />
+                <div className="flex-1 flex items-center justify-between text-xs">
+                  <div>
+                    <strong className="text-[#101B46] block font-semibold">Baseline assessment completed (Radar)</strong>
+                    <span className="text-[#687181]">Completed diagnostic evaluation</span>
+                  </div>
+                  <span className="text-[11px] text-[#687181] font-medium whitespace-nowrap">18 Sep 2026</span>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#155CC4] mt-1.5 shrink-0" />
+                <div className="flex-1 flex items-center justify-between text-xs">
+                  <div>
+                    <strong className="text-[#101B46] block font-semibold">Enrolled in Advanced Radar Interpretation</strong>
+                    <span className="text-[#687181]">Confirmed batch admission</span>
+                  </div>
+                  <span className="text-[11px] text-[#687181] font-medium whitespace-nowrap">20 Sep 2026</span>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#155CC4] mt-1.5 shrink-0" />
+                <div className="flex-1 flex items-center justify-between text-xs">
+                  <div>
+                    <strong className="text-[#101B46] block font-semibold">Completed Module 1: Basic Radar Concepts</strong>
+                    <span className="text-[#687181]">Watched lecture and passed quiz</span>
+                  </div>
+                  <span className="text-[11px] text-[#687181] font-medium whitespace-nowrap">21 Sep 2026</span>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Right 1 Column */}
+        <div className="space-y-6">
+          {/* My Journey Card */}
+          <Card title="My Journey">
+            <div className="space-y-5 pt-2">
+              <div className="flex items-start gap-3.5">
+                <div className="w-7 h-7 rounded-full bg-[#16A34A] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                  <Check size={14} strokeWidth={3} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-[#101B46] m-0">1. Understand</h4>
+                  <p className="text-[11px] text-[#687181] m-0">Know where you stand</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3.5">
+                <div className="w-7 h-7 rounded-full bg-[#155CC4] text-white flex items-center justify-center text-xs font-bold shrink-0 ring-4 ring-[#EAF3FF]">
+                  2
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-[#155CC4] m-0">2. Learn</h4>
+                  <p className="text-[11px] text-[#687181] m-0">Follow a personalized path</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3.5">
+                <div className="w-7 h-7 rounded-full bg-white border-2 border-[#D9E3F0] text-[#6B7280] flex items-center justify-center text-xs font-semibold shrink-0">
+                  3
+                </div>
+                <div>
+                  <h4 className="text-xs font-semibold text-[#101B46] m-0">3. Demonstrate</h4>
+                  <p className="text-[11px] text-[#687181] m-0">Show what you can do</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3.5">
+                <div className="w-7 h-7 rounded-full bg-white border-2 border-[#D9E3F0] text-[#6B7280] flex items-center justify-center text-xs font-semibold shrink-0">
+                  4
+                </div>
+                <div>
+                  <h4 className="text-xs font-semibold text-[#101B46] m-0">4. Grow</h4>
+                  <p className="text-[11px] text-[#687181] m-0">Take on bigger responsibilities</p>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Upcoming Card */}
+          <Card
+            title="Upcoming training"
+            action={
+              <Link to="/trainee/calendar" className="text-xs font-bold text-[#155CC4] hover:underline">
+                View All →
+              </Link>
+            }
+          >
+            <div className="space-y-3.5 pt-1">
+              {data?.upcoming?.length ? (
+                data.upcoming.map((x) => (
+                  <div className="flex items-start gap-3 text-xs" key={x._id}>
+                    <div className="w-7 h-7 rounded-lg bg-[#EAF3FF] text-[#155CC4] flex items-center justify-center shrink-0">
+                      <CalendarDays size={15} />
+                    </div>
+                    <div>
+                      <strong className="text-[#101B46] block font-semibold">{x.batch?.course?.title}</strong>
+                      <span className="text-[11px] text-[#687181]">{fmt(x.batch?.startDate, true)}</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div className="flex items-start gap-3 text-xs">
+                    <div className="w-7 h-7 rounded-lg bg-[#FEF3C7] text-[#D97706] flex items-center justify-center shrink-0">
+                      <ClipboardList size={15} />
+                    </div>
+                    <div>
+                      <strong className="text-[#101B46] block font-semibold">Assessment: Radar Basics</strong>
+                      <span className="text-[11px] text-[#687181]">Tomorrow, 10:00 AM</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 text-xs">
+                    <div className="w-7 h-7 rounded-lg bg-[#EAF3FF] text-[#155CC4] flex items-center justify-center shrink-0">
+                      <CalendarDays size={15} />
+                    </div>
+                    <div>
+                      <strong className="text-[#101B46] block font-semibold">Live Session: Advanced Radar</strong>
+                      <span className="text-[11px] text-[#687181]">22 Sep, 2:00 PM</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 text-xs">
+                    <div className="w-7 h-7 rounded-lg bg-[#FEE2E2] text-[#DC2626] flex items-center justify-center shrink-0">
+                      <AlertCircle size={15} />
+                    </div>
+                    <div>
+                      <strong className="text-[#101B46] block font-semibold">Assignment Due</strong>
+                      <span className="text-[11px] text-[#687181]">25 Sep, 11:59 PM</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </Card>
+
+          {/* Need Help Card */}
+          <div className="bg-[#EFF4FC] border border-[#D9E3F0] rounded-xl p-4">
+            <h4 className="text-xs font-bold text-[#101B46] m-0 mb-1">Need Help?</h4>
+            <p className="text-xs text-[#475875] m-0 mb-3 leading-relaxed">
+              Connect with your trainer or explore the institutional help centre.
+            </p>
+            <Link to="/trainee/feedback" className="text-xs font-bold text-[#155CC4] hover:underline inline-flex items-center gap-1">
+              Get Support →
             </Link>
-          </>
-        ) : (
-          <p className="muted">No active learning path assignment.</p>
-        )}
-      </Card>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
