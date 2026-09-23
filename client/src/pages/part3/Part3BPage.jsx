@@ -214,7 +214,9 @@ function EvidenceWorkspace({ segment, data, form, setForm, busy, act }) {
   const selected = data.find((x) => String(x._id) === form.evidenceId);
   const set = (key) => (value) => setForm({ ...form, [key]: value });
   return (
-    <div className="dashboard-grid">
+    <div
+      className={`dashboard-grid ${["evidence-review", "competency-decisions"].includes(segment) ? "review-workspace" : ""}`}
+    >
       <Card
         title="Evidence submissions"
         className="span-2"
@@ -411,60 +413,12 @@ function EvidenceWorkspace({ segment, data, form, setForm, busy, act }) {
               </div>
             </>
           ) : (
-            <>
-              <Field
-                label="Competency ID"
-                value={
-                  form.competency ||
-                  selected?.claimedCompetencies?.[0]?.competency?._id
-                }
-                onChange={set("competency")}
-                required
-              />
-              <Field
-                label="Decision reason"
-                value={form.reason}
-                onChange={set("reason")}
-                type="textarea"
-                required
-              />
-              <button
-                className="button button-primary"
-                disabled={busy || !selected}
-                onClick={() => {
-                  const claim = selected.claimedCompetencies[0];
-                  return act(
-                    () =>
-                      part3.post(
-                        `/evidence/${selected._id}/competency-decisions`,
-                        {
-                          competency: form.competency || claim.competency._id,
-                          frameworkVersion: claim.frameworkVersion,
-                          rubricVersion: claim.rubricVersion,
-                          targetLevel: claim.targetLevel,
-                          demonstratedLevel: claim.targetLevel,
-                          outcome: "DEMONSTRATED",
-                          criterionResults: [
-                            {
-                              criterionId: "HUMAN_REVIEW",
-                              met: true,
-                              comments: form.reason,
-                            },
-                          ],
-                          evidenceVersion: selected.version,
-                          reason: form.reason,
-                          idempotencyKey:
-                            crypto.randomUUID?.() ||
-                            `${Date.now()}-0000-4000-8000-000000000000`,
-                        },
-                      ),
-                    "Human competency decision recorded",
-                  );
-                }}
-              >
-                Record demonstrated decision
-              </button>
-            </>
+            <CriterionDecisionForm
+              key={selected?._id || "none"}
+              evidence={selected}
+              busy={busy}
+              act={act}
+            />
           )}
         </Card>
       )}
@@ -473,6 +427,10 @@ function EvidenceWorkspace({ segment, data, form, setForm, busy, act }) {
 }
 
 function Passport({ segment, data, busy, act }) {
+  const { user } = useAuth();
+  const [entries, setEntries] = useState({});
+  const same = (value) => String(value?._id || value) === user._id;
+
   if (segment.includes("follow"))
     return (
       <Card
@@ -516,6 +474,69 @@ function Passport({ segment, data, busy, act }) {
             ),
           ])}
         />
+        {(Array.isArray(data) ? data : []).map((x) => (
+          <details key={x._id}>
+            <summary>
+              {x.competency?.name} · Workplace application and observations
+              {!["COMPLETED", "CANCELLED"].includes(x.status) &&
+              x.dueDate &&
+              new Date(x.dueDate) < new Date()
+                ? " · Overdue"
+                : ""}
+            </summary>
+            {(x.workplaceEntries || []).map((entry, i) => (
+              <article className="activity-item" key={i}>
+                <strong>
+                  {entry.type === "APPLICATION"
+                    ? "Trainee application"
+                    : "Assigned supervisor observation"}
+                </strong>
+                <p>{entry.text}</p>
+                <small>
+                  {fmt(entry.recordedAt)} · Supporting information, not
+                  competency verification
+                </small>
+              </article>
+            ))}
+            {!["COMPLETED", "CANCELLED"].includes(x.status) &&
+              (same(x.trainee) || same(x.responsibleUser)) && (
+                <form
+                  className="auth-form"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const result = await act(
+                      () =>
+                        part3.post(`/follow-ups/${x._id}/workplace-entries`, {
+                          type: same(x.trainee) ? "APPLICATION" : "OBSERVATION",
+                          text: entries[x._id] || "",
+                          requestId: crypto.randomUUID(),
+                        }),
+                      "Workplace record saved",
+                    );
+                    if (result) setEntries({ ...entries, [x._id]: "" });
+                  }}
+                >
+                  <label>
+                    {same(x.trainee)
+                      ? "How did you apply this learning?"
+                      : "Supervisor observation"}
+                    <textarea
+                      required
+                      minLength={4}
+                      maxLength={5000}
+                      value={entries[x._id] || ""}
+                      onChange={(e) =>
+                        setEntries({ ...entries, [x._id]: e.target.value })
+                      }
+                    />
+                  </label>
+                  <button className="button button-primary" disabled={busy}>
+                    Save workplace record
+                  </button>
+                </form>
+              )}
+          </details>
+        ))}
       </Card>
     );
   return (
@@ -880,5 +901,146 @@ function AIWorkspace({ segment, settings, form, setForm, busy, act }) {
         </Card>
       )}
     </div>
+  );
+}
+
+function CriterionDecisionForm({ evidence, busy, act }) {
+  const [claimIndex, setClaimIndex] = useState(0),
+    [outcome, setOutcome] = useState("NEEDS_PRACTICE"),
+    [level, setLevel] = useState(""),
+    [reason, setReason] = useState(""),
+    [results, setResults] = useState({});
+  const claims = evidence?.claimedCompetencies || [];
+  const claim = claims[claimIndex];
+  const levels = (claim?.competency?.levels || []).filter(
+    (l) => l.value <= claim.targetLevel,
+  );
+  const criteria = levels.flatMap((l) =>
+    (l.criteria || [])
+      .filter((c) => c.rubricVersion === claim.rubricVersion)
+      .map((c) => ({ ...c, level: l.value })),
+  );
+  if (!evidence)
+    return <p>Select assigned evidence to inspect its competency claims.</p>;
+  return (
+    <form
+      className="auth-form"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        const saved = await act(
+          () =>
+            part3.post(`/evidence/${evidence._id}/competency-decisions`, {
+              competency: claim.competency._id,
+              frameworkVersion: claim.frameworkVersion,
+              rubricVersion: claim.rubricVersion,
+              targetLevel: claim.targetLevel,
+              demonstratedLevel:
+                outcome === "DEMONSTRATED" ? Number(level) : null,
+              outcome,
+              criterionResults: criteria.map((c) => ({
+                criterionId: c.criterionId,
+                met: results[c.criterionId] === "MET",
+                comments: reason,
+              })),
+              evidenceVersion: evidence.version,
+              reason,
+              idempotencyKey: crypto.randomUUID(),
+            }),
+          "Human competency decision recorded",
+        );
+        if (saved) {
+          setReason("");
+          setResults({});
+        }
+      }}
+    >
+      <label>
+        Competency claim
+        <select
+          value={claimIndex}
+          onChange={(e) => {
+            setClaimIndex(Number(e.target.value));
+            setResults({});
+            setLevel("");
+          }}
+        >
+          {claims.map((c, i) => (
+            <option key={i} value={i}>
+              {c.competency?.name} · target L{c.targetLevel} · {c.rubricVersion}
+            </option>
+          ))}
+        </select>
+      </label>
+      {criteria.length ? (
+        criteria.map((c) => (
+          <label key={c.criterionId}>
+            L{c.level} · {c.description}
+            <select
+              required
+              value={results[c.criterionId] || ""}
+              onChange={(e) =>
+                setResults({ ...results, [c.criterionId]: e.target.value })
+              }
+            >
+              <option value="">Record reviewed outcome</option>
+              <option value="MET">Demonstrated for this criterion</option>
+              <option value="NEEDS_PRACTICE">Assessed, needs practice</option>
+            </select>
+          </label>
+        ))
+      ) : (
+        <p role="status">
+          This framework has no observable criteria for the claimed rubric.
+          Configure a versioned framework before recording a criterion-based
+          decision.
+        </p>
+      )}
+      <label>
+        Decision outcome
+        <select value={outcome} onChange={(e) => setOutcome(e.target.value)}>
+          <option value="NEEDS_PRACTICE">Needs practice at target level</option>
+          <option value="DEMONSTRATED">
+            Demonstrated level confirmed by reviewer
+          </option>
+        </select>
+      </label>
+      {outcome === "DEMONSTRATED" && (
+        <label>
+          Human-confirmed demonstrated level
+          <select
+            required
+            value={level}
+            onChange={(e) => setLevel(e.target.value)}
+          >
+            <option value="">Select supported level</option>
+            {levels.map((l) => (
+              <option key={l.value} value={l.value}>
+                L{l.value} · {l.definition}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <label>
+        Decision reason
+        <textarea
+          required
+          minLength={4}
+          maxLength={5000}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+        />
+      </label>
+      <p className="muted">
+        Accepting evidence is separate from demonstrating competency.
+        Higher-level practice needs do not erase valid lower-level evidence.
+      </p>
+      <button
+        className="button button-primary"
+        disabled={busy || evidence.status !== "VERIFIED" || !criteria.length}
+      >
+        Record human competency decision
+      </button>
+    </form>
   );
 }

@@ -803,6 +803,12 @@ function Assessments({
   if (user.role === "trainee")
     return (
       <div className="card-grid">
+        {!rows.length && (
+          <EmptyState
+            title="No assigned assessments"
+            description="Published assessments will appear here for your enrolled learning."
+          />
+        )}
         {rows.map((assessment) => (
           <Card
             key={assessment._id}

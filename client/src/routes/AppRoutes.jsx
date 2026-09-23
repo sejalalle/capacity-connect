@@ -1,4 +1,8 @@
 import { Routes, Route, Link } from "react-router-dom";
+import ContinuityPage from "../pages/continuity/ContinuityPage";
+import CapacityPage from "../pages/capacity/CapacityPage";
+import CertificatesPage from "../pages/certificates/CertificatesPage";
+import FeedbackPage from "../pages/feedback/FeedbackPage";
 import PublicLayout from "../layouts/PublicLayout";
 import TraineeLayout from "../layouts/TraineeLayout";
 import TrainerLayout from "../layouts/TrainerLayout";
@@ -80,7 +84,15 @@ export default function AppRoutes() {
                       key={path}
                       path={path}
                       element={
-                        role === "admin" && path === "users" ? (
+                        path === "continuity" ? (
+                          <ContinuityPage />
+                        ) : path === "trainer-capacity" ? (
+                          <CapacityPage />
+                        ) : path === "certificates" ? (
+                          <CertificatesPage />
+                        ) : path === "feedback" ? (
+                          <FeedbackPage />
+                        ) : role === "admin" && path === "users" ? (
                           <UsersPage />
                         ) : part3bPaths.has(path) ? (
                           <Part3BPage />

@@ -616,3 +616,106 @@ test("mocked AI output stays a self-declared suggestion or unpublished question 
     0,
   );
 });
+
+test("trainer cannot retrieve another person’s entire passport; workplace observations require explicit assignment", async () => {
+  await request(app)
+    .get(`/api/part3/competency-passport?trainee=${trainee._id}`)
+    .set(auth(otherTrainer))
+    .expect(403);
+  const row = await P3.P3FollowUp.create({
+    trainee: trainee._id,
+    competency: p2.competencies[0]._id,
+    sourceDecision: new mongoose.Types.ObjectId(),
+    actionType: "PRACTICE",
+    recommendedAction: "Synthetic workplace radar interpretation",
+    responsibleUser: reviewer._id,
+    createdBy: admin._id,
+  });
+  const path = `/api/part3/follow-ups/${row._id}/workplace-entries`;
+  const application = {
+    type: "APPLICATION",
+    text: "Applied the synthetic interpretation method.",
+    requestId: crypto.randomUUID(),
+  };
+  await request(app)
+    .post(path)
+    .set(auth(otherTrainee))
+    .send(application)
+    .expect(403);
+  await request(app)
+    .post(path)
+    .set(auth(trainee))
+    .send(application)
+    .expect(200);
+  await request(app)
+    .post(path)
+    .set(auth(trainee))
+    .send(application)
+    .expect(200);
+  const observation = {
+    type: "OBSERVATION",
+    text: "Observed the task; a separate subject review remains necessary.",
+    requestId: crypto.randomUUID(),
+  };
+  await request(app)
+    .post(path)
+    .set(auth(trainee))
+    .send(observation)
+    .expect(403);
+  await request(app).post(path).set(auth(admin)).send(observation).expect(403);
+  const before = await P3.P3CompetencyDecision.countDocuments();
+  await request(app)
+    .post(path)
+    .set(auth(reviewer))
+    .send(observation)
+    .expect(200);
+  assert.equal(
+    (await P3.P3FollowUp.findById(row._id)).workplaceEntries.length,
+    2,
+  );
+  assert.equal(await P3.P3CompetencyDecision.countDocuments(), before);
+});
+
+test('configured criterion decisions establish L2 while retaining explicit L3 practice needs and recommendations', async () => {
+  const levels=[1,2,3].map(value=>({value,label:`Synthetic L${value}`,definition:`Observable synthetic task at L${value}`,criteria:[{criterionId:`CRIT-${value}`,description:`Demonstrate synthetic task ${value}`,rubricVersion:'synthetic-criteria-v1',evidenceTypes:['PRACTICAL_TASK'],foundationalCriteria:value>1?[`CRIT-${value-1}`]:[]}]}));
+  const created=await request(app).post('/api/competencies').set(auth(admin)).send({code:'SYN-CRITERIA',name:'Synthetic criterion interpretation',domain:'Synthetic Meteorology',version:1,status:'PUBLISHED',levels,isSynthetic:true}).expect(201);
+  const competency=created.body.data;
+  assert.equal(competency.levels[2].criteria[0].criterionId,'CRIT-3');
+  await P3.P3TrainerExpertise.create({trainer:reviewer._id,competency:competency._id,frameworkVersion:1,approvedLevel:3,status:'REVIEWED',reviewedBy:admin._id});
+  await P2.P2RoleRequirement.create({jobRole:trainee.jobRole,competency:competency._id,competencyVersion:1,requiredLevel:3,version:1,createdBy:admin._id});
+  const submitted=await request(app).post('/api/part3/evidence').set(auth(trainee)).send({enrollment:String(p3.enrollment._id),evidenceType:'PRACTICAL_TASK',claimedCompetencies:[{competency:competency._id,frameworkVersion:1,rubricVersion:'synthetic-criteria-v1',targetLevel:3}],description:'Synthetic workplace task with explicit observable criteria.'}).expect(201);
+  const evidenceId=submitted.body.data._id;
+  await request(app).post(`/api/part3/evidence/${evidenceId}/assign-reviewer`).set(auth(admin)).send({reviewer:String(reviewer._id),reason:'Explicit subject reviewer for synthetic criterion task.'}).expect(200);
+  await request(app).post(`/api/part3/evidence/${evidenceId}/review`).set(auth(reviewer)).send({status:'VERIFIED',reason:'Accepted for the stated synthetic practical task.',comments:'Competency decision remains separate.'}).expect(200);
+  const body={competency:competency._id,frameworkVersion:1,rubricVersion:'synthetic-criteria-v1',targetLevel:3,demonstratedLevel:2,outcome:'DEMONSTRATED',criterionResults:[{criterionId:'CRIT-1',met:true,comments:'Observed'},{criterionId:'CRIT-2',met:true,comments:'Observed'},{criterionId:'CRIT-3',met:false,comments:'Needs practice'}],evidenceVersion:1,reason:'L2 criteria demonstrated, L3 not yet demonstrated.',idempotencyKey:crypto.randomUUID()};
+  await request(app).post(`/api/part3/evidence/${evidenceId}/competency-decisions`).set(auth(reviewer)).send({...body,demonstratedLevel:3}).expect(400);
+  await request(app).post(`/api/part3/evidence/${evidenceId}/competency-decisions`).set(auth(reviewer)).send(body).expect(201);
+  const gaps=await request(app).get('/api/gaps/me').set(auth(trainee)).expect(200);
+  const gap=gaps.body.data.find(x=>x.competency._id===competency._id);
+  assert.equal(gap.gap,1);
+  assert.deepEqual(gap.criteria.map(c=>c.status),['DEMONSTRATED','DEMONSTRATED','NEEDS_PRACTICE']);
+});
+
+test('knowledge-transfer participation is scoped, retained and never promotes competency', async () => {
+ const source=await P2.P2CompetencyRecord.findOne({trainee:trainee._id,status:'DEMONSTRATED'});
+ assert.ok(source);
+ const requestId=crypto.randomUUID();
+ const body={title:'Synthetic continuity plan',sourceRecord:String(source._id),participants:[String(otherTrainee._id)],courses:[],practiceTask:'Practise a synthetic radar scenario.',reviewRequirements:'Submit evidence for an assigned subject reviewer.',dueDate:new Date(Date.now()+86400000).toISOString(),requestId};
+ await request(app).post('/api/part3/continuity').set(auth(otherTrainee)).send(body).expect(403);
+ const response=await request(app).post('/api/part3/continuity').set(auth(admin)).send(body).expect(200);
+ const plan=response.body.data;
+ const retry=await request(app).post('/api/part3/continuity').set(auth(admin)).send(body).expect(200);
+ assert.equal(retry.body.data._id,plan._id);
+ const unassigned=await request(app).get('/api/part3/continuity').set(auth(otherTrainer)).expect(200);
+ assert.equal(unassigned.body.data.length,0);
+ const contribution={text:'Completed synthetic practice; competency review has not occurred.',requestId:crypto.randomUUID()};
+ await request(app).post(`/api/part3/continuity/${plan._id}/participation`).set(auth(otherTrainer)).send(contribution).expect(404);
+ const before=await P2.P2CompetencyRecord.find({trainee:otherTrainee._id}).lean();
+ await request(app).post(`/api/part3/continuity/${plan._id}/participation`).set(auth(otherTrainee)).send(contribution).expect(200);
+ await request(app).post(`/api/part3/continuity/${plan._id}/participation`).set(auth(otherTrainee)).send(contribution).expect(200);
+ assert.equal((await P3.P3KnowledgeTransferPlan.findById(plan._id)).participation.length,1);
+ await request(app).post(`/api/part3/continuity/${plan._id}/close`).set(auth(otherTrainee)).send({status:'COMPLETED',reason:'Attempt to self-complete'}).expect(403);
+ await request(app).post(`/api/part3/continuity/${plan._id}/close`).set(auth(admin)).send({status:'COMPLETED',reason:'Plan activity completed; human verification remains separate.'}).expect(200);
+ const after=await P2.P2CompetencyRecord.find({trainee:otherTrainee._id}).lean();
+ assert.deepEqual(after,before);
+});

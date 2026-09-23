@@ -318,9 +318,57 @@ router.post("/competencies", admin, async (req, res) => {
     value: positiveInteger(level.value, "Level value", 5),
     label: requiredText(level.label, "Level label", 80),
     definition: requiredText(level.definition, "Level definition", 500),
+    criteria: (Array.isArray(level.criteria) ? level.criteria : []).map(
+      (criterion) => ({
+        criterionId: requiredText(criterion.criterionId, "Criterion ID", 80),
+        description: requiredText(
+          criterion.description,
+          "Observable criterion",
+          1000,
+        ),
+        rubricVersion: requiredText(
+          criterion.rubricVersion,
+          "Rubric version",
+          100,
+        ),
+        evidenceTypes: Array.isArray(criterion.evidenceTypes)
+          ? criterion.evidenceTypes
+          : [],
+        foundationalCriteria: Array.isArray(criterion.foundationalCriteria)
+          ? criterion.foundationalCriteria.map((x) =>
+              requiredText(x, "Foundational criterion", 80),
+            )
+          : [],
+      }),
+    ),
   }));
   if (new Set(levels.map((level) => level.value)).size !== levels.length)
     fail(400, "Competency level values must be distinct");
+  const criteria = levels.flatMap((level) => level.criteria);
+  const criterionIds = new Set(criteria.map((x) => x.criterionId));
+  if (criterionIds.size !== criteria.length)
+    fail(400, "Criterion IDs must be unique within a framework version");
+  for (const level of levels)
+    for (const criterion of level.criteria) {
+      if (!criterion.evidenceTypes.length)
+        fail(
+          400,
+          "Each observable criterion requires at least one evidence type",
+        );
+      for (const dependency of criterion.foundationalCriteria) {
+        if (
+          !levels.some(
+            (lower) =>
+              lower.value < level.value &&
+              lower.criteria.some((c) => c.criterionId === dependency),
+          )
+        )
+          fail(
+            400,
+            "Foundational criteria must refer to defined lower-level criteria",
+          );
+      }
+    }
   const row = await M.P2Competency.create({
     name: requiredText(req.body.name, "Competency name"),
     code: requiredText(req.body.code, "Competency code", 50).toUpperCase(),

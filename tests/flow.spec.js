@@ -71,7 +71,7 @@ test("SAMARTHYA-only branding and role-specific trainer navigation", async ({
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: /Structured learning decisions/ }),
+    page.getByRole("heading", { name: /Turn training needs into demonstrated capability/ }),
   ).toBeVisible();
   const text = await page.locator("body").innerText();
   expect(text).not.toMatch(/SIH|PS\s*26075|Capacity Connect|hackathon/i);

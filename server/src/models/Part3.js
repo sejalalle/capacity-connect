@@ -459,6 +459,16 @@ export const P3FollowUp = make(
       required: true,
     },
     recommendedAction: { type: String, required: true },
+    workplaceEntries: [
+      {
+        requestId: String,
+        type: { type: String, enum: ["APPLICATION", "OBSERVATION"] },
+        actor: oid("User"),
+        text: String,
+        evidence: oid("P3Evidence", false),
+        recordedAt: Date,
+      },
+    ],
     explanation: String,
     recommendedCourse: oid("P2Course", false),
     responsibleUser: oid("User", false),
@@ -830,6 +840,91 @@ export const P3HumanEvaluation = make(
     [{ submission: 1, version: 1 }, { unique: true }],
     [{ evaluator: 1, status: 1 }],
   ],
+);
+
+// Identified participant feedback. Never advertised as anonymous.
+export const P3KnowledgeTransferPlan = make(
+  "P3KnowledgeTransferPlan",
+  {
+    title: { type: String, required: true },
+    competency: oid("P2Competency"),
+    frameworkVersion: Number,
+    targetLevel: Number,
+    sourceExpert: oid("User"),
+    sourceRecord: oid("P2CompetencyRecord"),
+    participants: [oid("User")],
+    courses: [oid("P2Course")],
+    practiceTask: String,
+    reviewRequirements: String,
+    dueDate: Date,
+    status: {
+      type: String,
+      enum: ["ACTIVE", "COMPLETED", "CANCELLED"],
+      default: "ACTIVE",
+    },
+    createdBy: oid("User"),
+    requestId: String,
+    history: [{ actor: oid("User"), at: Date, status: String, reason: String }],
+    participation: [
+      {
+        participant: oid("User"),
+        at: Date,
+        text: String,
+        evidence: oid("P3Evidence", false),
+        requestId: String,
+      },
+    ],
+    ...synthetic,
+  },
+  [
+    [{ createdBy: 1, requestId: 1 }, { unique: true }],
+    [{ participants: 1, status: 1 }],
+  ],
+);
+
+export const P3CompletionCertificate = make(
+  "P3CompletionCertificate",
+  {
+    certificateId: { type: String, required: true },
+    enrollment: oid("P2Enrollment"),
+    trainee: oid("User"),
+    batch: oid("P2Batch"),
+    course: oid("P2Course"),
+    ruleVersion: oid("P2CourseRuleVersion"),
+    resultVersion: oid("P3ResultVersion", false),
+    completedModules: [oid("P3LearningModule")],
+    traineeName: String,
+    courseTitle: String,
+    batchName: String,
+    issuedBy: oid("User"),
+    completedAt: Date,
+    status: { type: String, enum: ["ISSUED", "REVOKED"], default: "ISSUED" },
+    history: [{ action: String, actor: oid("User"), at: Date, reason: String }],
+    ...synthetic,
+  },
+  [
+    [{ enrollment: 1 }, { unique: true }],
+    [{ certificateId: 1 }, { unique: true }],
+  ],
+);
+
+export const P3Feedback = make(
+  "P3Feedback",
+  {
+    trainee: oid("User"),
+    enrollment: oid("P2Enrollment"),
+    batch: oid("P2Batch"),
+    targetType: {
+      type: String,
+      enum: ["COURSE", "RESOURCE", "TRAINER", "EXPERIENCE"],
+      required: true,
+    },
+    target: { type: Schema.Types.ObjectId, required: true },
+    rating: { type: Number, min: 1, max: 5, required: true },
+    comment: { type: String, maxlength: 3000 },
+    ...synthetic,
+  },
+  [[{ enrollment: 1, targetType: 1, target: 1 }, { unique: true }]],
 );
 
 export const P3ResultVersion = make(

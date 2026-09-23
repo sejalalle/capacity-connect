@@ -12,11 +12,11 @@ export default function Brand({ compact = false }) {
       >
         <path
           d="M20 3 37 20 20 37 3 20Z"
-          stroke="#532D4F"
+          stroke="var(--brand-primary)"
           strokeWidth="1.75"
         />
-        <path d="m20 10 9 19-9-5-9 5Z" fill="#532D4F" />
-        <circle cx="20" cy="20" r="3.2" fill="#A65F3D" />
+        <path d="m20 10 9 19-9-5-9 5Z" fill="var(--brand-primary)" />
+        <circle cx="20" cy="20" r="3.2" fill="#FFFFFF" />
       </svg>
       <span>
         <strong>SAMARTHYA</strong>

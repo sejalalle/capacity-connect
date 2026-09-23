@@ -1,65 +1,17 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  ArrowRight,
-  BookOpen,
-  GraduationCap,
-  Presentation,
-  ShieldCheck,
-  FileCheck2,
-  BrainCircuit,
-  Sparkles,
-} from "lucide-react";
-
+import { ArrowRight, BookOpen, Users, FileCheck2 } from "lucide-react";
+import Card from "../../components/ui/Card";
+import StatusBadge from "../../components/ui/StatusBadge";
 export default function LandingPage() {
-  const [activeTab, setActiveTab] = useState(0);
-
-  const previewSteps = [
-    {
-      label: "Role Requirement",
-      title: "Meteorological Analyst · Level 4 Required",
-      detail: "SYN-MET-01 · Numerical Weather Prediction Interpretation",
-      badge: "Target: L4",
-      status: "Required",
-      note: "Standard baseline for operational forecasters",
-    },
-    {
-      label: "Diagnostic Estimate",
-      title: "Diagnostic Assessment Completed",
-      detail: "Preliminary indicative score: 78% (Estimated L3 proficiency)",
-      badge: "Estimated: L3",
-      status: "Separate Indicator",
-      note: "Estimates guide learning and never overwrite verified evidence",
-    },
-    {
-      label: "Targeted Learning",
-      title: "Advanced Radar & Satellite Data Processing",
-      detail: "Assigned batch with confirmed seat admission and scheduled modules",
-      badge: "Enrolled",
-      status: "In Progress",
-      note: "Modules, practical exercises, and supervised simulations",
-    },
-    {
-      label: "Evidence & Decision",
-      title: "Operational Weather Chart Analysis Submission",
-      detail: "Trainer evaluated with rubric · Coordinator reviewed and verified L4",
-      badge: "Demonstrated L4",
-      status: "Verified Record",
-      note: "Full audit trail linking assessor, evidence file, and verified level",
-    },
-  ];
-
   return (
     <>
       <section className="hero">
         <div className="hero-copy">
-          <p className="eyebrow">Capacity Building & Competency Assurance</p>
-          <h1>
-            Turn training needs into <span>demonstrated capability.</span>
-          </h1>
+          <p className="eyebrow">Learning with a clear purpose</p>
+          <h1>Turn training needs into demonstrated capability.</h1>
           <p>
-            Connect role requirements, relevant learning, suitable trainers and
-            reviewed evidence in one traceable training journey.
+            Connect learning, suitable trainers and reviewed evidence in one
+            traceable training journey.
           </p>
           <div className="flex gap-3 flex-wrap">
             <Link className="button button-primary" to="/login">
@@ -70,166 +22,111 @@ export default function LandingPage() {
             </Link>
           </div>
           <p className="context-note">
-            Demonstration environment with clearly labelled synthetic records.
+            A proposed platform for meteorological training and capacity
+            building.
           </p>
         </div>
-
-        <div className="product-preview-card" aria-label="Product preview">
-          <div className="preview-card-header">
-            <div className="flex items-center gap-2">
-              <Sparkles size={16} className="text-copper-600" />
-              <span className="text-xs font-bold uppercase tracking-wider text-plum-900">
-                Traceable Training Lifecycle
-              </span>
-            </div>
-            <span className="demo-label">Illustrative example</span>
-          </div>
-
-          <div className="preview-card-body">
-            {previewSteps.map((step, idx) => (
-              <div
-                key={step.label}
-                className={`preview-step ${activeTab === idx ? "active" : ""}`}
-                onClick={() => setActiveTab(idx)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") setActiveTab(idx);
-                }}
-              >
-                <span
-                  className={`preview-step-num ${
-                    idx === 3 ? "accent" : ""
-                  }`}
-                >
-                  0{idx + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <strong className="text-sm text-plum-900">{step.title}</strong>
-                    <span className="badge teal text-xs">{step.badge}</span>
-                  </div>
-                  <p className="text-xs text-ivory-700 mt-0.5">{step.detail}</p>
-                  <small className="text-xs text-ivory-500 block mt-1">
-                    {step.note}
-                  </small>
-                </div>
+        <Card
+          title="A connected learning journey"
+          subtitle="Illustrative example · synthetic data"
+          className="product-preview-card"
+        >
+          {[
+            ["Identify a need", "Radar interpretation practice", "APPROVED"],
+            [
+              "Learn and apply",
+              "Sample weather radar programme",
+              "IN_PROGRESS",
+            ],
+            [
+              "Review the evidence",
+              "Practical task reviewed by an assigned reviewer",
+              "UNDER_REVIEW",
+            ],
+          ].map(([title, detail, status], i) => (
+            <div className="batch-option" key={title}>
+              <div>
+                <small>Step {i + 1}</small>
+                <strong>{title}</strong>
+                <p className="muted">{detail}</p>
               </div>
-            ))}
-          </div>
-        </div>
+              <StatusBadge status={status} />
+            </div>
+          ))}
+          <p className="context-note mt-4">
+            Course completion and demonstrated competency are separate outcomes.
+          </p>
+        </Card>
       </section>
-
       <section id="platform" className="landing-section">
         <div className="section-intro">
-          <p className="eyebrow">Platform Capabilities</p>
-          <h2>Information first, with an auditable decision trail.</h2>
+          <h2>One journey. Clear responsibilities.</h2>
           <p>
-            From diagnostic gap identification to evidence-backed decisions,
-            SAMARTHYA guarantees transparency and role-specific clarity.
+            Keep the next action, supporting evidence and human decision in
+            view.
           </p>
         </div>
-
         <div className="feature-grid">
-          <article className="feature">
-            <span className="icon-box plum">
-              <BookOpen size={20} />
-            </span>
-            <h3>Explainable Eligibility</h3>
-            <p>
-              Rule-driven checklists inspect prerequisites, existing records,
-              and capacity limits without black-box rejections.
-            </p>
-          </article>
-
-          <article className="feature">
-            <span className="icon-box copper">
-              <BrainCircuit size={20} />
-            </span>
-            <h3>Separated Estimates & Evidence</h3>
-            <p>
-              Diagnostic assessment estimates provide helpful learning guidance
-              while verified competency records require reviewed evidence.
-            </p>
-          </article>
-
-          <article className="feature">
-            <span className="icon-box teal">
-              <FileCheck2 size={20} />
-            </span>
-            <h3>Traceable Decisions & Audit</h3>
-            <p>
-              Every admission approval, score evaluation, and competency decision
-              records actor identity, timestamp, and justification.
-            </p>
-          </article>
+          {[
+            [
+              BookOpen,
+              "Relevant learning",
+              "Connect training requests to course outcomes, schedules and available places.",
+            ],
+            [
+              Users,
+              "Suitable trainers",
+              "Review expertise and availability before an authorized coordinator assigns a trainer.",
+            ],
+            [
+              FileCheck2,
+              "Reviewed evidence",
+              "Keep assessment results, evidence acceptance and competency decisions distinct.",
+            ],
+          ].map(([Icon, title, copy]) => (
+            <Card key={title} title={title}>
+              <Icon size={22} className="muted mb-3" />
+              <p className="muted">{copy}</p>
+            </Card>
+          ))}
         </div>
       </section>
-
       <section id="how-it-works" className="roles-section">
         <div className="section-intro">
-          <p className="eyebrow">Role-Specific Workspaces</p>
-          <h2>Purpose-built tools for each participant.</h2>
+          <h2>A workspace for every participant</h2>
         </div>
-
         <div className="role-grid">
-          <article>
-            <span className="icon-box plum mb-3">
-              <GraduationCap size={22} />
-            </span>
-            <h3>Trainee</h3>
-            <p>
-              Track your competency passport, review verified versus estimated
-              skill gaps, nominate for courses, submit evidence, and take
-              scheduled assessments.
-            </p>
-          </article>
-
-          <article>
-            <span className="icon-box copper mb-3">
-              <Presentation size={22} />
-            </span>
-            <h3>Trainer</h3>
-            <p>
-              Design and publish courses with mapped competencies, manage
-              learning resources, author question banks, and evaluate practical
-              assessments.
-            </p>
-          </article>
-
-          <article>
-            <span className="icon-box teal mb-3">
-              <ShieldCheck size={22} />
-            </span>
-            <h3>Coordinator / Admin</h3>
-            <p>
-              Manage competency frameworks, approve training needs, match
-              trainers by objective suitability, and oversee organizational
-              capability.
-            </p>
-          </article>
+          {[
+            [
+              "Trainee",
+              "Find learning, track nominations, complete assessments and submit evidence.",
+            ],
+            [
+              "Trainer",
+              "Publish your courses, prepare resources and evaluate assigned submissions.",
+            ],
+            [
+              "Administrator / Coordinator",
+              "Manage access, training arrangements and authorized review workflows.",
+            ],
+          ].map(([title, copy]) => (
+            <article key={title}>
+              <h3>{title}</h3>
+              <p>{copy}</p>
+            </article>
+          ))}
         </div>
       </section>
-
       <section id="about" className="landing-section">
-        <div className="card text-center p-8 bg-surface border border-border">
-          <p className="eyebrow">Ready to begin?</p>
-          <h2 className="text-2xl font-bold text-plum-900 mt-2 mb-3">
-            Join the SAMARTHYA platform today
-          </h2>
-          <p className="text-sm text-ivory-700 max-w-lg mx-auto mb-6">
-            Access your personalized role workspace, review institutional
-            competencies, and build demonstrated capability.
+        <Card title="Ready for your next step?">
+          <p className="muted mb-6">
+            Sign in to continue your training journey, or register for a trainee
+            or trainer account.
           </p>
-          <div className="flex justify-center gap-3">
-            <Link className="button button-primary" to="/register">
-              Create an account <ArrowRight size={16} />
-            </Link>
-            <Link className="button button-secondary" to="/login">
-              Sign in to workspace
-            </Link>
-          </div>
-        </div>
+          <Link className="button button-primary" to="/register">
+            Get started <ArrowRight size={16} />
+          </Link>
+        </Card>
       </section>
     </>
   );

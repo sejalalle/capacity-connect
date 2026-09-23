@@ -60,6 +60,9 @@ export const navigationGroups = {
     {
       group: "Account",
       items: [
+        ["Knowledge Continuity", "continuity", BookOpenCheck],
+        ["Completion Certificates", "certificates", FileCheck2],
+        ["Training Feedback", "feedback", ClipboardCheck],
         ["Notifications", "notifications", Bell],
         ["Profile", "profile", UserRound],
       ],
@@ -98,6 +101,9 @@ export const navigationGroups = {
         ["AI Question Drafts", "ai-question-drafts", BrainCircuit],
         ["Trainer Profile & Expertise", "trainer-profile", UserRound],
         ["Account Profile", "profile", UserRound],
+        ["Knowledge Continuity", "continuity", BookOpenCheck],
+        ["Completion Certificates", "certificates", FileCheck2],
+        ["Training Feedback", "feedback", ClipboardCheck],
         ["Notifications", "notifications", Bell],
       ],
     },
@@ -142,8 +148,12 @@ export const navigationGroups = {
       group: "Insights & Records",
       items: [
         ["Follow-up Oversight", "follow-up-oversight", Route],
+        ["Trainer Capacity", "trainer-capacity", Clock3],
         ["AI Activity", "ai-activity", Activity],
         ["Audit Logs", "audit-logs", ScrollText],
+        ["Knowledge Continuity", "continuity", BookOpenCheck],
+        ["Completion Certificates", "certificates", FileCheck2],
+        ["Training Feedback", "feedback", ClipboardCheck],
         ["Notifications", "notifications", Bell],
         ["Profile", "profile", UserRound],
       ],

@@ -293,8 +293,8 @@ export async function calculateSuitability(
         : null,
       P3.P3TrainerAvailability.find({
         trainer: trainer._id,
-        start: { $lte: sessionRow.start },
-        end: { $gte: sessionRow.end },
+        start: { $lt: sessionRow.end },
+        end: { $gt: sessionRow.start },
       })
         .session(dbSession)
         .lean(),
@@ -309,8 +309,15 @@ export async function calculateSuitability(
         ],
       }).session(dbSession),
     ]);
-    const availableWindow = windows.find((window) => window.available);
     const unavailableWindow = windows.find((window) => !window.available);
+    const availableWindow =
+      !unavailableWindow &&
+      windows.find(
+        (window) =>
+          window.available &&
+          window.start <= sessionRow.start &&
+          window.end >= sessionRow.end,
+      );
     const requiredQualifications = sessionRow.requiredQualifications || [];
     const qualifications =
       expertise?.qualifications || trainer.qualifications || [];
@@ -634,7 +641,7 @@ export async function confirmAssignment({
             demoNamespace: batch.demoNamespace,
           },
         ],
-        { session: dbSession },
+        { session: dbSession, ordered: true },
       );
       await recordPart3Audit(
         actor,

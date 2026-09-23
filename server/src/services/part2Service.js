@@ -1,3 +1,4 @@
+import { criterionGaps } from "./criterionService.js";
 import crypto from "node:crypto";
 import mongoose from "mongoose";
 import { HttpError } from "../middleware/errorHandler.js";
@@ -21,6 +22,28 @@ export async function gapsFor(traineeId) {
   const records = await M.P2CompetencyRecord.find({
     trainee: traineeId,
   }).lean();
+  const publishedCourses = await M.P2Course.find({
+    status: "PUBLISHED",
+    "competencyOutcomes.competency": {
+      $in: requirements.map((r) => r.competency._id),
+    },
+  })
+    .select("title competencyOutcomes")
+    .lean();
+  const availableBatches = await M.P2Batch.find({
+    course: { $in: publishedCourses.map((c) => c._id) },
+    status: "OPEN",
+    nominationOpensAt: { $lte: new Date() },
+    nominationClosesAt: { $gte: new Date() },
+  })
+    .select("course name capacity seatsAllocated waitlistEnabled")
+    .lean();
+  const Decision = mongoose.models.P3CompetencyDecision;
+  const decisions = Decision
+    ? await Decision.find({ trainee: traineeId, status: "ACTIVE" })
+        .sort({ decidedAt: -1 })
+        .lean()
+    : [];
   return requirements
     .map((requirement) => {
       const record = records
@@ -36,6 +59,42 @@ export async function gapsFor(traineeId) {
         evidenceStatus: record?.status || "NOT_ASSESSED",
         sourceType: record?.sourceType || "NONE",
         assessedAt: record?.assessedAt || null,
+        recommendedCourses: publishedCourses
+          .filter((course) =>
+            course.competencyOutcomes.some(
+              (outcome) =>
+                id(outcome.competency) === id(requirement.competency) &&
+                outcome.frameworkVersion === requirement.competencyVersion &&
+                (record?.status !== "DEMONSTRATED" ||
+                  record.frameworkVersion !== requirement.competencyVersion ||
+                  outcome.targetLevel > record.demonstratedLevel),
+            ),
+          )
+          .map((course) => ({
+            _id: course._id,
+            title: course.title,
+            batches: availableBatches
+              .filter(
+                (batch) =>
+                  id(batch.course) === id(course) &&
+                  (batch.seatsAllocated < batch.capacity ||
+                    batch.waitlistEnabled),
+              )
+              .map((batch) => ({
+                _id: batch._id,
+                name: batch.name,
+                seatAvailable: batch.seatsAllocated < batch.capacity,
+              })),
+            explanation: `Your role requires ${requirement.competency.name} L${requirement.requiredLevel}. ${record?.status === "DEMONSTRATED" && record.frameworkVersion === requirement.competencyVersion ? `Your reviewed level is L${record.demonstratedLevel}.` : "No comparable demonstrated level is established."} This published course maps to the same framework version. Its intended outcomes are not a guarantee of demonstrated capability; eligibility is checked when you apply.`,
+          })),
+        criteria: criterionGaps(
+          requirement.competency,
+          requirement.requiredLevel,
+          decisions.filter(
+            (d) => id(d.competency) === id(requirement.competency),
+          ),
+          requirement.competencyVersion,
+        ),
       };
       if (!record || record.status === "NOT_ASSESSED")
         return {

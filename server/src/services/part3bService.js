@@ -1,3 +1,4 @@
+import { validateCriterionDecision } from "./criterionService.js";
 import crypto from "node:crypto";
 import mongoose from "mongoose";
 import User from "../models/User.js";
@@ -25,7 +26,7 @@ const audit = (data, session) =>
         timestamp: new Date(),
       },
     ],
-    { session },
+    { session, ordered: true },
   );
 
 async function evidenceContext(evidence, session = null) {
@@ -289,6 +290,11 @@ export async function reviewEvidence(actor, evidenceId, data) {
 async function assertDecisionScope(actor, evidence, claim, session) {
   if (id(evidence.owner) === id(actor))
     fail(409, "Users cannot decide their own competency");
+  if (id(evidence.assignedReviewer) !== id(actor))
+    fail(
+      403,
+      "Only the assigned evidence reviewer can make this competency decision",
+    );
   const { batch } = await evidenceContext(evidence, session);
   if (!(await hasAction(actor._id, batch, "DECIDE_COMPETENCY", session)))
     fail(403, "Competency-decision scope is required for this batch");
@@ -407,16 +413,25 @@ export async function decideCompetency(actor, evidenceId, data) {
         data.criterionResults.some((x) => typeof x.met !== "boolean")
       )
         fail(400, "Complete criterion results are required");
+      const frameworkConfigured = (
+        await P2.P2Competency.findById(data.competency).session(session)
+      ).levels.some((level) => level.criteria?.length);
       if (
         data.outcome === "DEMONSTRATED" &&
         (!data.demonstratedLevel ||
           data.demonstratedLevel > data.targetLevel ||
-          data.criterionResults.some((x) => !x.met))
+          (!frameworkConfigured && data.criterionResults.some((x) => !x.met)))
       )
         fail(
           400,
           "A demonstrated decision requires complete criteria and a valid demonstrated level",
         );
+      const framework = await get(P2.P2Competency, data.competency, session);
+      validateCriterionDecision(
+        framework.toObject(),
+        data,
+        evidence.evidenceType,
+      );
       const key = data.idempotencyKey;
       const existing = await P3.P3CompetencyDecision.findOne({
         idempotencyKey: key,
@@ -456,7 +471,7 @@ export async function decideCompetency(actor, evidenceId, data) {
             demoNamespace: evidence.demoNamespace,
           },
         ],
-        { session },
+        { session, ordered: true },
       );
       const record = await recomputeRecord(
         evidence.owner,
@@ -486,7 +501,7 @@ export async function decideCompetency(actor, evidenceId, data) {
             demoNamespace: evidence.demoNamespace,
           },
         ],
-        { session },
+        { session, ordered: true },
       );
       if (data.outcome === "NEEDS_PRACTICE") {
         const course = await P2.P2Course.findOne({
@@ -624,7 +639,7 @@ export async function supersedeDecision(actor, decisionId, data) {
               idempotencyKey: data.idempotencyKey,
             },
           ],
-          { session },
+          { session, ordered: true },
         );
       } else {
         [changeDecision] = await P3.P3CompetencyDecision.create(
@@ -641,7 +656,7 @@ export async function supersedeDecision(actor, decisionId, data) {
               idempotencyKey: data.idempotencyKey,
             },
           ],
-          { session },
+          { session, ordered: true },
         );
       }
       record = await recomputeRecord(
@@ -673,7 +688,7 @@ export async function supersedeDecision(actor, decisionId, data) {
             demoNamespace: old.demoNamespace,
           },
         ],
-        { session },
+        { session, ordered: true },
       );
       await audit(
         {
@@ -731,7 +746,7 @@ export async function evidenceFor(actor, filters = {}) {
 
 export async function passportFor(actor, traineeId) {
   const trainee = traineeId || actor._id;
-  if (actor.role === "trainee" && id(trainee) !== id(actor))
+  if (actor.role !== "admin" && id(trainee) !== id(actor))
     fail(403, "You can only view your own competency passport");
   const [records, history, decisions, gaps, followUps] = await Promise.all([
     P2.P2CompetencyRecord.find({ trainee })
@@ -752,6 +767,77 @@ export async function passportFor(actor, traineeId) {
       .lean(),
   ]);
   return { records, history, decisions, gaps, followUps };
+}
+
+export async function recordWorkplaceEntry(actor, followUpId, data) {
+  const session = await mongoose.startSession();
+  let row;
+  try {
+    await session.withTransaction(async () => {
+      row = await get(P3.P3FollowUp, followUpId, session);
+      const allowed =
+        data.type === "APPLICATION"
+          ? id(row.trainee) === id(actor)
+          : id(row.responsibleUser) === id(actor) &&
+            id(row.trainee) !== id(actor);
+      if (!allowed)
+        fail(
+          403,
+          "Only the trainee can record application; only the assigned supervisor can record an observation",
+        );
+      if (row.workplaceEntries.some((x) => x.requestId === data.requestId))
+        return;
+      if (["COMPLETED", "CANCELLED"].includes(row.status))
+        fail(409, "This follow-up is closed");
+      if (
+        data.evidence &&
+        !(await P3.P3Evidence.exists({
+          _id: data.evidence,
+          owner: row.trainee,
+        }).session(session))
+      )
+        fail(403, "Linked evidence must belong to the follow-up trainee");
+      row.workplaceEntries.push({
+        ...data,
+        actor: actor._id,
+        recordedAt: new Date(),
+      });
+      await row.save({ session });
+      await audit(
+        {
+          actor: actor._id,
+          action: "WORKPLACE_ENTRY_RECORDED",
+          entityType: "P3FollowUp",
+          entityId: row._id,
+          changes: { type: data.type },
+          reason:
+            "Workplace record added; no competency verification performed",
+          correlationId: data.requestId,
+        },
+        session,
+      );
+      const recipient =
+        data.type === "APPLICATION" ? row.responsibleUser : row.trainee;
+      if (recipient)
+        await P2.P2Notification.create(
+          [
+            {
+              recipient,
+              type: "FOLLOW_UP_ENTRY",
+              title: "Workplace follow-up updated",
+              message:
+                "An application record or supervisor observation is ready to review.",
+              eventId: `follow-up:${row._id}:${data.requestId}`,
+              entityReference: { entityType: "P3FollowUp", entityId: row._id },
+            },
+          ],
+          { session, ordered: true },
+        );
+    });
+    return row;
+  } finally {
+    await session.endSession();
+  }
 }
 
 export async function updateFollowUp(actor, followUpId, data) {
@@ -818,6 +904,7 @@ export async function capabilityReport(actor, filters = {}) {
   });
   const demand = await P2.P2TrainingNeed.find({
     status: { $in: ["SUBMITTED", "RESUBMITTED", "UNDER_REVIEW", "APPROVED"] },
+    beneficiary: { $in: users.map((user) => user._id) },
   })
     .select("competencyGoals")
     .lean();
@@ -863,6 +950,7 @@ export async function capabilityReport(actor, filters = {}) {
     const below = applicable.filter(
       (record) =>
         record?.status === "DEMONSTRATED" &&
+        record.demonstratedLevel != null &&
         record.demonstratedLevel < requirement.requiredLevel,
     ).length;
     const notComparable = applicable.filter(

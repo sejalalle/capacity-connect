@@ -1,29 +1,83 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { X, LogOut, ChevronDown, ChevronRight, Sparkles } from "lucide-react";
+import { X, LogOut, ChevronDown, ChevronRight } from "lucide-react";
 import Brand from "./Brand";
 import useAuth from "../../hooks/useAuth";
 import { navigationGroups } from "../../utils/navigation";
 
 export default function Sidebar({ role, open, onClose }) {
+  const ref = useRef(null);
   const { logout } = useAuth();
   const location = useLocation();
   const groups = navigationGroups[role] || [];
 
   // Determine active group from pathname
-  const currentPath = location.pathname.replace(`/${role}`, "").replace(/^\//, "");
+  const currentPath = location.pathname
+    .replace(`/${role}`, "")
+    .replace(/^\//, "");
 
   const [collapsedGroups, setCollapsedGroups] = useState({});
 
   // Ensure active group is expanded
   useEffect(() => {
     const activeGroup = groups.find((g) =>
-      g.items.some(([, path]) => path === currentPath || (path === "" && currentPath === "")),
+      g.items.some(
+        ([, path]) =>
+          path === currentPath || (path && currentPath.startsWith(`${path}/`)),
+      ),
     );
     if (activeGroup && collapsedGroups[activeGroup.group]) {
       setCollapsedGroups((prev) => ({ ...prev, [activeGroup.group]: false }));
     }
   }, [currentPath, groups]);
+
+  useEffect(() => {
+    if (!open || !window.matchMedia("(max-width: 900px)").matches) return;
+    const previous = document.activeElement;
+    const sidebar = ref.current;
+    const body = document.querySelector(".workspace-body");
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    if (body) body.inert = true;
+    const focusable = () =>
+      [...sidebar.querySelectorAll("a,button")].filter(
+        (el) => el.getClientRects().length && !el.disabled,
+      );
+    sidebar.querySelector('[aria-label="Close navigation"]')?.focus();
+    const trap = (event) => {
+      if (event.key !== "Tab") return;
+      const nodes = focusable();
+      const first = nodes[0],
+        last = nodes.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+    sidebar.addEventListener("keydown", trap);
+    return () => {
+      sidebar.removeEventListener("keydown", trap);
+      document.body.style.overflow = overflow;
+      if (body) body.inert = false;
+      previous?.focus();
+    };
+  }, [open]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 900px)");
+    const update = () => {
+      if (ref.current) ref.current.inert = media.matches && !open;
+    };
+    update();
+    media.addEventListener("change", update);
+    return () => {
+      media.removeEventListener("change", update);
+      if (ref.current) ref.current.inert = false;
+    };
+  }, [open]);
 
   const toggleGroup = (groupName) => {
     setCollapsedGroups((prev) => ({
@@ -36,8 +90,8 @@ export default function Sidebar({ role, open, onClose }) {
     role === "admin"
       ? "Administrator / Coordinator"
       : role === "trainer"
-      ? "Trainer Workspace"
-      : "Trainee Workspace";
+        ? "Trainer Workspace"
+        : "Trainee Workspace";
 
   return (
     <>
@@ -46,7 +100,12 @@ export default function Sidebar({ role, open, onClose }) {
         onClick={onClose}
         aria-hidden="true"
       />
-      <aside className={`sidebar ${open ? "open" : ""}`} aria-label="Main sidebar">
+      <aside
+        ref={ref}
+        id="workspace-navigation"
+        className={`sidebar ${open ? "open" : ""}`}
+        aria-label="Main sidebar"
+      >
         <div className="sidebar-brand">
           <Brand compact />
           <button
@@ -66,7 +125,9 @@ export default function Sidebar({ role, open, onClose }) {
           {groups.map((group) => {
             const isCollapsed = Boolean(collapsedGroups[group.group]);
             const hasActiveItem = group.items.some(
-              ([, path]) => path === currentPath || (path === "" && currentPath === ""),
+              ([, path]) =>
+                path === currentPath ||
+                (path && currentPath.startsWith(`${path}/`)),
             );
 
             return (
@@ -96,7 +157,7 @@ export default function Sidebar({ role, open, onClose }) {
                       <NavLink
                         key={label}
                         to={`/${role}${path ? `/${path}` : ""}`}
-                        end
+                        end={!path}
                         onClick={onClose}
                         className={({ isActive }) =>
                           `nav-link ${isActive ? "active" : ""}`
@@ -114,21 +175,7 @@ export default function Sidebar({ role, open, onClose }) {
         </nav>
 
         <div className="sidebar-bottom">
-          <div className="sidebar-footer-card">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-plum-700">
-              <Sparkles size={13} className="text-copper-600" />
-              <span>Demonstration Mode</span>
-            </div>
-            <p className="text-xs text-ivory-700 mt-1 leading-snug">
-              Synthetic training records & traceable competencies.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            className="sidebar-logout-btn"
-            onClick={logout}
-          >
+          <button type="button" className="sidebar-logout-btn" onClick={logout}>
             <LogOut size={16} />
             <span>Sign out</span>
           </button>

@@ -194,6 +194,59 @@ test("suitability applies mandatory checks and exact 100-point contributions", a
     .expect(403);
 });
 
+test("partial unavailability overrides a wider available window and planning remains coordinator-scoped", async () => {
+  const row = await P3.P3TrainerAvailability.create({
+    trainer: trainer._id,
+    start: new Date(part3.session.start.getTime() + 1000),
+    end: new Date(part3.session.end.getTime() - 1000),
+    available: false,
+    createdBy: trainer._id,
+  });
+  const response = await request(app)
+    .get(
+      `/api/part3/trainer-suitability/${part3.batch._id}/${part3.session._id}`,
+    )
+    .set(auth(admin))
+    .expect(200);
+  const result = response.body.data.find(
+    (x) => x.trainer._id === String(trainer._id),
+  );
+  assert.equal(result.status, "INELIGIBLE");
+  assert.ok(
+    result.checks.some((x) => x.key === "AVAILABILITY" && x.outcome === "FAIL"),
+  );
+  const body = {
+    batch: String(part3.batch._id),
+    traineeCount: 30,
+    batchSize: 30,
+    trainersPerSession: 1,
+    start: new Date(part3.session.start.getTime() - 86400000).toISOString(),
+    end: new Date(part3.session.end.getTime() + 86400000).toISOString(),
+  };
+  await request(app)
+    .post("/api/part3/capacity")
+    .set(auth(trainee))
+    .send(body)
+    .expect(403);
+  await request(app)
+    .post("/api/part3/capacity")
+    .set(auth(admin))
+    .send({ ...body, batchSize: 0 })
+    .expect(400);
+  const plan = await request(app)
+    .post("/api/part3/capacity")
+    .set(auth(admin))
+    .send(body)
+    .expect(200);
+  assert.equal(plan.body.data.batchesRequired, 1);
+  assert.equal(
+    plan.body.data.requiredTeachingHours,
+    plan.body.data.teachingHoursPerBatch,
+  );
+  assert.ok(plan.body.data.assumptions.length);
+  await P3.P3TrainerAvailability.deleteOne({ _id: row._id });
+});
+
 test("assignment rejects stale shortlists and atomically prevents overlapping concurrent confirmations", async () => {
   let response = await request(app)
     .post("/api/part3/trainer-assignments")

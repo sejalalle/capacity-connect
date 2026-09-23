@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import StatusBadge from "./StatusBadge";
 
 export function Breadcrumbs({ items }) {
@@ -70,6 +71,9 @@ export function EligibilityChecklist({ snapshot }) {
 export function CompetencyComparison({ item }) {
   const required = item.requiredLevel || 0,
     current = item.demonstratedLevel;
+  const levels = [...(item.competency?.levels || [])]
+    .sort((a, b) => a.value - b.value)
+    .map((level) => level.value);
   return (
     <div className="comparison">
       <div className="comparison-head">
@@ -82,7 +86,7 @@ export function CompetencyComparison({ item }) {
       <div className="level-row">
         <span>Demonstrated</span>
         <div className="level-track">
-          {[1, 2, 3, 4, 5].map((n) => (
+          {levels.map((n) => (
             <i
               key={n}
               className={current != null && n <= current ? "filled" : ""}
@@ -94,13 +98,72 @@ export function CompetencyComparison({ item }) {
       <div className="level-row">
         <span>Required</span>
         <div className="level-track required">
-          {[1, 2, 3, 4, 5].map((n) => (
+          {levels.map((n) => (
             <i key={n} className={n <= required ? "filled" : ""} />
           ))}
         </div>
         <b>L{required}</b>
       </div>
       <p>{item.explanation}</p>
+      {item.criteria?.length ? (
+        <details>
+          <summary>Observable criteria and evidence status</summary>
+          <ul className="criteria-list">
+            {item.criteria.map((c) => (
+              <li key={c.criterionId}>
+                <strong>
+                  L{c.level} · {c.description}
+                </strong>
+                <StatusBadge status={c.status} />
+                <small>
+                  Rubric {c.rubricVersion} ·{" "}
+                  {c.evidenceTypes
+                    .join(", ")
+                    .replaceAll("_", " ")
+                    .toLowerCase()}
+                </small>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : (
+        <p className="muted">
+          Criterion-level evidence is not configured for this framework version.
+        </p>
+      )}
+      <details>
+        <summary>Relevant learning</summary>
+        {item.recommendedCourses?.length ? (
+          item.recommendedCourses.map((course) => (
+            <article className="activity-item" key={course._id}>
+              <strong>{course.title}</strong>
+              <p>{course.explanation}</p>
+              <small>
+                {course.batches.length
+                  ? `${course.batches.length} open batch option(s); admission requires approval.`
+                  : "No open batch currently recorded."}
+              </small>
+              <Link
+                className="text-button"
+                to={`/trainee/courses/${course._id}`}
+              >
+                View course
+              </Link>
+            </article>
+          ))
+        ) : (
+          <p>
+            No published course mapping is currently available. You can still
+            request training.
+          </p>
+        )}
+      </details>
+      <Link
+        className="button button-secondary"
+        to={`/trainee/training-needs?competency=${item.competency?._id}&title=${encodeURIComponent(`Develop ${item.competency?.name} toward L${required}`)}`}
+      >
+        Request training
+      </Link>
       <small>
         {item.assessedAt
           ? `Reviewed source dated ${new Date(item.assessedAt).toLocaleDateString("en-IN")}`

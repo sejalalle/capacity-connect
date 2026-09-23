@@ -33,6 +33,7 @@ export default function Topbar({ onMenu }) {
           className="icon-button mobile-only"
           onClick={onMenu}
           aria-label="Open navigation"
+          aria-controls="workspace-navigation"
         >
           <Menu size={20} />
         </button>
@@ -44,8 +45,6 @@ export default function Topbar({ onMenu }) {
       </div>
 
       <div className="flex items-center gap-4">
-        <span className="demo-label">Demonstration</span>
-
         <Link
           className="topbar-icon-button"
           to={`/${user?.role || "trainee"}/notifications`}
@@ -53,7 +52,11 @@ export default function Topbar({ onMenu }) {
           title="Notifications"
         >
           <Bell size={18} />
-          {unread > 0 && <span className="notification-dot">{unread > 99 ? "99+" : unread}</span>}
+          {unread > 0 && (
+            <span className="notification-dot">
+              {unread > 99 ? "99+" : unread}
+            </span>
+          )}
         </Link>
 
         <Link className="user-menu" to={`/${user?.role || "trainee"}/profile`}>
@@ -64,8 +67,8 @@ export default function Topbar({ onMenu }) {
               {user?.role === "admin"
                 ? "Admin / Coordinator"
                 : user?.role === "trainer"
-                ? "Trainer"
-                : "Trainee"}
+                  ? "Trainer"
+                  : "Trainee"}
             </small>
           </span>
           <ChevronDown size={14} className="text-ivory-500 ml-0.5" />

@@ -95,7 +95,11 @@ function Kpis({ values }) {
       {Object.entries(values || {}).map(([key, value]) => (
         <div className="kpi" key={key}>
           <strong>{value}</strong>
-          <span>{key.replace(/([A-Z])/g, " $1")}</span>
+          <span>
+            {key
+              .replace(/([A-Z])/g, " $1")
+              .replace(/^./, (c) => c.toUpperCase())}
+          </span>
         </div>
       ))}
     </div>
@@ -113,6 +117,7 @@ export default function Part2Page({ view }) {
     toast = useToast();
   const segment = view || location.pathname.split("/")[2] || "dashboard";
   const detailId = params.id;
+  const [passportComparisons, setPassportComparisons] = useState([]);
   const [data, setData] = useState(null),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
@@ -153,6 +158,8 @@ export default function Part2Page({ view }) {
     setError("");
     try {
       setData(await part2.get(endpoint));
+      if (endpoint === "/competency-records/me")
+        setPassportComparisons(await part2.get("/gaps/me"));
       setLoadedFor(endpoint);
     } catch (e) {
       setError(errorMessage(e));
@@ -160,6 +167,18 @@ export default function Part2Page({ view }) {
       setLoading(false);
     }
   }, [endpoint]);
+  useEffect(() => {
+    if (segment !== "training-needs" || detailId) return;
+    const query = new URLSearchParams(location.search);
+    const competency = query.get("competency");
+    if (competency && /^[a-f\d]{24}$/i.test(competency))
+      setForm({
+        title: query.get("title") || "Competency development request",
+        competencyGoals: [competency],
+        targetJobRole: user.jobRole?._id || user.jobRole || "",
+        justification: "",
+      });
+  }, [location.search, segment, detailId, user.jobRole]);
   useEffect(() => {
     load();
     document.title = `${title} | SAMARTHYA`;
@@ -172,7 +191,7 @@ export default function Part2Page({ view }) {
       setForm({});
       await load();
     } catch (e) {
-      setError(errorMessage(e));
+      toast(errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -235,22 +254,48 @@ export default function Part2Page({ view }) {
           <DataTable
             headers={[
               "Competency",
-              "Demonstrated",
+              "Required",
+              "Human-verified level",
+              "Assessment estimate",
               "Status",
               "Source",
               "Assessed",
             ]}
             rows={items(data).map((x) => [
               x.competency?.name,
+              passportComparisons.find(
+                (g) => g.competency?._id === x.competency?._id,
+              )?.requiredLevel != null
+                ? `L${passportComparisons.find((g) => g.competency?._id === x.competency?._id).requiredLevel}`
+                : "No role requirement",
               x.demonstratedLevel == null
                 ? "Not assessed"
                 : `L${x.demonstratedLevel}`,
+              "Not assessed",
               <StatusBadge status={x.status} />,
-              x.sourceReference || "No reviewed source",
+              x.sourceReference ? (
+                <details>
+                  <summary>Reviewed source</summary>
+                  <p className="source-reference">{x.sourceReference}</p>
+                </details>
+              ) : (
+                "No reviewed source"
+              ),
               fmt(x.assessedAt, true),
             ])}
           />
         </Card>
+        <div className="flex gap-3 my-6 flex-wrap">
+          <Link
+            className="button button-secondary"
+            to="/trainee/competency-history"
+          >
+            View competency history
+          </Link>
+          <Link className="button button-secondary" to="/trainee/evidence">
+            View evidence
+          </Link>
+        </div>
         <Card
           title="Self-declared profile skills"
           subtitle="These profile entries are separate from reviewed competency records."
@@ -452,7 +497,15 @@ function DataTable({ headers, rows }) {
 function TraineeDashboard({ data }) {
   return (
     <div className="dashboard-grid">
-      <Card title="Action required" className="span-2">
+      <Card
+        title="Your next step"
+        className="span-2"
+        action={
+          <Link className="button button-primary" to="/trainee/learning">
+            Continue learning <ArrowRight size={16} />
+          </Link>
+        }
+      >
         {data.actionItems?.length ? (
           data.actionItems.map((x) => (
             <Link className="notice-row warning" to={x.path} key={x.path}>
@@ -814,6 +867,7 @@ function CourseList({ data, user, busy, act, navigate }) {
     <div className="dashboard-grid">
       {role === "trainer" && (
         <Card
+          className="span-2 course-create"
           title="Create course"
           subtitle="Your approved trainer account can create and publish its own valid courses."
         >
@@ -853,7 +907,7 @@ function CourseList({ data, user, busy, act, navigate }) {
             ? "My courses and published catalogue"
             : "Published programmes"
         }
-        className={role === "trainer" ? "span-2" : ""}
+        className="span-2"
       >
         <DataTable
           headers={[
@@ -1827,6 +1881,76 @@ function CompetencyList({ data, user, form, setForm, busy, act }) {
               onChange={(e) => setForm({ ...form, level2: e.target.value })}
             />
           </label>
+          <label>
+            Level 3 definition (optional)
+            <textarea
+              value={form.level3 || ""}
+              onChange={(e) => setForm({ ...form, level3: e.target.value })}
+            />
+          </label>
+          <fieldset className="role-choices">
+            <legend>Observable criteria</legend>
+            <p>
+              Criteria are versioned application rules. Evidence is reviewed by
+              an authorized person; completing a course does not establish a
+              level.
+            </p>
+            <label>
+              Rubric version
+              <input
+                value={form.rubricVersion || ""}
+                onChange={(e) =>
+                  setForm({ ...form, rubricVersion: e.target.value })
+                }
+                placeholder="e.g. proposed-radar-v1"
+              />
+            </label>
+            {[1, 2, 3].map((level) => (
+              <div key={level} className="activity-item">
+                <label>
+                  Level {level} observable criterion
+                  <textarea
+                    value={form[`criterion${level}`] || ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        [`criterion${level}`]: e.target.value,
+                      })
+                    }
+                  />
+                </label>
+                <label>
+                  Level {level} evidence type
+                  <select
+                    value={form[`evidence${level}`] || "PRACTICAL_TASK"}
+                    onChange={(e) =>
+                      setForm({ ...form, [`evidence${level}`]: e.target.value })
+                    }
+                  >
+                    <option value="PRACTICAL_TASK">Practical task</option>
+                    <option value="PROJECT">Project</option>
+                    <option value="ASSESSMENT">Assessment</option>
+                    <option value="OTHER">Other reviewed evidence</option>
+                  </select>
+                </label>
+                {level > 1 && (
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(form[`foundation${level}`])}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          [`foundation${level}`]: e.target.checked,
+                        })
+                      }
+                    />
+                    Requires the previous level’s criterion
+                  </label>
+                )}
+              </div>
+            ))}
+          </fieldset>
           <button
             className="button button-primary"
             disabled={
@@ -1846,18 +1970,28 @@ function CompetencyList({ data, user, form, setForm, busy, act }) {
                     domain: form.domain,
                     description: form.description || "",
                     version: 1,
-                    levels: [
-                      {
-                        value: 1,
-                        label: "Guided",
-                        definition: form.level1,
-                      },
-                      {
-                        value: 2,
-                        label: "Independent",
-                        definition: form.level2,
-                      },
-                    ],
+                    levels: [1, 2, ...(form.level3 ? [3] : [])].map(
+                      (value) => ({
+                        value,
+                        label: `Level ${value}`,
+                        definition: form[`level${value}`],
+                        criteria: form[`criterion${value}`]
+                          ? [
+                              {
+                                criterionId: `${form.code.toUpperCase()}-L${value}`,
+                                description: form[`criterion${value}`],
+                                rubricVersion: form.rubricVersion || "",
+                                evidenceTypes: [
+                                  form[`evidence${value}`] || "PRACTICAL_TASK",
+                                ],
+                                foundationalCriteria: form[`foundation${value}`]
+                                  ? [`${form.code.toUpperCase()}-L${value - 1}`]
+                                  : [],
+                              },
+                            ]
+                          : [],
+                      }),
+                    ),
                     status: "DRAFT",
                     isSynthetic: true,
                   }),

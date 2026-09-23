@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, CheckCircle2, ShieldCheck } from "lucide-react";
 import Brand from "../../components/ui/Brand";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
-import Select from "../../components/ui/Select";
+
 import Modal from "../../components/ui/Modal";
 import useAuth from "../../hooks/useAuth";
 import { authService } from "../../services/authService";
@@ -102,22 +102,22 @@ export default function AuthPage({ register = false }) {
             Professional learning with <span>measurable outcomes.</span>
           </h1>
           <p>
-            A unified institutional framework connecting role competencies,
-            interactive assessments, and verified evidence.
+            A meteorological learning and competency development platform.
+            Connect role requirements, learning and human-reviewed evidence.
           </p>
           <div className="auth-principle">
             <ShieldCheck size={22} className="text-copper-600" />
             <div>
-              <strong className="block text-white font-semibold">
+              <strong className="block text-ivory-900 font-semibold">
                 Traceable Role Workspaces
               </strong>
-              <span className="text-ivory-200 text-xs">
+              <span className="text-ivory-700 text-xs">
                 Auditable decision records & access control
               </span>
             </div>
           </div>
         </div>
-        <small className="text-ivory-200 text-xs">
+        <small className="text-ivory-700 text-xs">
           SAMARTHYA Capacity Building Platform · Synthetic Records Demo
         </small>
       </aside>
@@ -132,16 +132,21 @@ export default function AuthPage({ register = false }) {
         <div className="auth-form-wrap">
           {success ? (
             <div className="card text-center p-8">
-              <CheckCircle2 size={44} className="text-status-success mx-auto mb-3" />
-              <h2 className="text-xl font-bold text-plum-900">Registration Submitted</h2>
+              <CheckCircle2
+                size={44}
+                className="text-status-success mx-auto mb-3"
+              />
+              <h2 className="text-xl font-bold text-plum-900">
+                Registration Submitted
+              </h2>
               <p className="text-sm text-ivory-700 mt-2 mb-1">
-                Your account registration has been submitted for administrator review.
+                Your registration has been submitted for approval.
               </p>
               <p className="text-xs text-ivory-500 mb-6">
                 You will be able to sign in once your account is approved.
               </p>
               <Link className="button button-primary inline-flex" to="/login">
-                Back to Sign in <ArrowRight size={16} />
+                Back to login <ArrowRight size={16} />
               </Link>
             </div>
           ) : (
@@ -150,7 +155,7 @@ export default function AuthPage({ register = false }) {
                 {register ? "START YOUR JOURNEY" : "ACCOUNT ACCESS"}
               </p>
               <h1 className="text-2xl font-bold text-plum-900 mt-1 mb-2">
-                {register ? "Create your account" : "Welcome back"}
+                {register ? "Create your account" : "Welcome back."}
               </h1>
               <p className="text-sm text-ivory-700 mb-6">
                 {register
@@ -174,7 +179,7 @@ export default function AuthPage({ register = false }) {
 
                 {field(
                   "email",
-                  register ? "Professional Email" : "Email",
+                  register ? "Official / Professional Email" : "Email",
                   {
                     type: "email",
                     required: true,
@@ -188,8 +193,12 @@ export default function AuthPage({ register = false }) {
                   {field("password", "Password", {
                     type: "password",
                     required: true,
-                    autoComplete: register ? "new-password" : "current-password",
-                    hint: register ? "Min 10 chars with upper, lower & number." : undefined,
+                    autoComplete: register
+                      ? "new-password"
+                      : "current-password",
+                    hint: register
+                      ? "Min 10 chars with upper, lower & number."
+                      : undefined,
                   })}
                   {register &&
                     field("confirmPassword", "Confirm Password", {
@@ -201,15 +210,53 @@ export default function AuthPage({ register = false }) {
 
                 {register ? (
                   <>
-                    <Select
-                      label="Workspace Role"
-                      value={values.role}
-                      onChange={(e) => setValues({ ...values, role: e.target.value })}
-                      error={errors.role}
-                    >
-                      <option value="trainee">Trainee</option>
-                      <option value="trainer">Trainer</option>
-                    </Select>
+                    <fieldset className="role-choices">
+                      <legend>Workspace Role</legend>
+                      <p>
+                        Choose the access you want to request. Account approval
+                        is required.
+                      </p>
+                      <div className="form-grid">
+                        {[
+                          [
+                            "trainee",
+                            "Trainee",
+                            "Learn, practise and build reviewed evidence.",
+                          ],
+                          [
+                            "trainer",
+                            "Trainer",
+                            "Create courses and deliver assigned training.",
+                          ],
+                        ].map(([value, title, description]) => (
+                          <label
+                            key={value}
+                            className={
+                              values.role === value
+                                ? "role-choice selected"
+                                : "role-choice"
+                            }
+                          >
+                            <input
+                              type="radio"
+                              name="role"
+                              value={value}
+                              checked={values.role === value}
+                              onChange={() =>
+                                setValues({ ...values, role: value })
+                              }
+                            />
+                            <strong>{title}</strong>
+                            <span>{description}</span>
+                          </label>
+                        ))}
+                      </div>
+                      {errors.role && <p role="alert">{errors.role}</p>}
+                      <p>
+                        Administrator access is provisioned separately.{" "}
+                        <Link to="/login">Sign in to an existing account</Link>.
+                      </p>
+                    </fieldset>
 
                     <div className="form-grid">
                       {field("department", "Department", {
@@ -251,13 +298,15 @@ export default function AuthPage({ register = false }) {
                 )}
 
                 <Button loading={busy} className="w-full mt-2" type="submit">
-                  {register ? "Submit Registration" : "Sign In"}
+                  {register ? "Submit registration" : "Login"}
                   <ArrowRight size={16} />
                 </Button>
               </form>
 
               <div className="auth-switch mt-6">
-                {register ? "Already have an account?" : "Don't have an account?"}{" "}
+                {register
+                  ? "Already have an account?"
+                  : "Don't have an account?"}{" "}
                 <Link to={register ? "/login" : "/register"}>
                   {register ? "Sign in" : "Create account"}
                 </Link>

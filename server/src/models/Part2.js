@@ -42,6 +42,27 @@ export const P2Competency = make(
         value: { type: Number, min: 1, max: 5 },
         label: String,
         definition: String,
+        criteria: [
+          {
+            criterionId: { type: String, required: true },
+            description: { type: String, required: true },
+            evidenceTypes: [
+              {
+                type: String,
+                enum: [
+                  "CERTIFICATE",
+                  "PROJECT",
+                  "ASSESSMENT",
+                  "PRACTICAL_TASK",
+                  "TRAINER_RECOMMENDATION",
+                  "OTHER",
+                ],
+              },
+            ],
+            rubricVersion: { type: String, required: true },
+            foundationalCriteria: [String],
+          },
+        ],
       },
     ],
     status: {
@@ -225,6 +246,12 @@ export const P2CourseRuleVersion = make(
     approvalPolicy: String,
     futureAssessmentPolicyMetadata: Schema.Types.Mixed,
     futureCertificatePolicyMetadata: Schema.Types.Mixed,
+    certificatePolicy: {
+      enabled: { type: Boolean, default: false },
+      requireLearningCompletion: { type: Boolean, default: true },
+      requirePublishedPass: { type: Boolean, default: true },
+      additionalRequirements: [String],
+    },
     createdBy: oid("User"),
     publishedAt: Date,
     ...synthetic,

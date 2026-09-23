@@ -21,6 +21,7 @@ import {
   submitEvidence,
   supersedeDecision,
   updateFollowUp,
+  recordWorkplaceEntry,
 } from "../services/part3bService.js";
 import { aiSettings } from "../services/aiService.js";
 
@@ -217,6 +218,26 @@ router.patch(
       res,
       await updateFollowUp(req.user, objectId.parse(req.params.id), req.body),
       "Follow-up updated",
+    ),
+);
+router.post(
+  "/follow-ups/:id/workplace-entries",
+  all,
+  body({
+    type: z.enum(["APPLICATION", "OBSERVATION"]),
+    text,
+    evidence: objectId.optional(),
+    requestId: z.string().uuid(),
+  }),
+  async (req, res) =>
+    ok(
+      res,
+      await recordWorkplaceEntry(
+        req.user,
+        objectId.parse(req.params.id),
+        req.validated.body,
+      ),
+      "Workplace record saved; competency remains subject to human review",
     ),
 );
 router.get("/capability", admin, async (req, res) =>

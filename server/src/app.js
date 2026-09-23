@@ -7,6 +7,10 @@ import userRoutes from "./routes/userRoutes.js";
 import part2Routes from "./routes/part2Routes.js";
 import part3Routes from "./routes/part3aRoutes.js";
 import part3bRoutes from "./routes/part3bRoutes.js";
+import continuityRoutes from "./routes/continuityRoutes.js";
+import capacityRoutes from "./routes/capacityRoutes.js";
+import certificateRoutes from "./routes/certificateRoutes.js";
+import feedbackRoutes from "./routes/feedbackRoutes.js";
 import errorHandler from "./middleware/errorHandler.js";
 const app = express();
 app.disable("x-powered-by");
@@ -23,6 +27,10 @@ app.use("/api/users", userRoutes);
 app.use("/api", part2Routes);
 app.use("/api/part3", part3Routes);
 app.use("/api/part3", part3bRoutes);
+app.use("/api/part3", feedbackRoutes);
+app.use("/api/part3", certificateRoutes);
+app.use("/api/part3", capacityRoutes);
+app.use("/api/part3", continuityRoutes);
 app.use((req, res) =>
   res.status(404).json({ success: false, message: "Route not found" }),
 );

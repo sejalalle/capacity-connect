@@ -28,7 +28,7 @@ const get = async (Model, id, session) => {
   return row;
 };
 const create = async (Model, data, session) =>
-  (await Model.create([data], { session }))[0];
+  (await Model.create([data], { session, ordered: true }))[0];
 export const audit = (actor, batch, action, row, reason, session, from, to) =>
   create(
     M.AuditLog,
