@@ -8,9 +8,9 @@ import part2Routes from "./routes/part2Routes.js";
 import announcementRoutes from "./routes/announcementRoutes.js";
 import part3Routes from "./routes/part3aRoutes.js";
 import part3bRoutes from "./routes/part3bRoutes.js";
-import continuityRoutes from "./routes/continuityRoutes.js";
 import tttRoutes from "./routes/tttRoutes.js";
 import capacityRoutes from "./routes/capacityRoutes.js";
+import mediaRoutes from "./routes/mediaRoutes.js";
 import certificateRoutes from "./routes/certificateRoutes.js";
 import feedbackRoutes from "./routes/feedbackRoutes.js";
 import errorHandler from "./middleware/errorHandler.js";
@@ -28,12 +28,14 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api", part2Routes);
 app.use("/api", announcementRoutes);
+// Media mounts before part3aRoutes: part3aRoutes applies a blanket auth across
+// /api/part3 that would reject ?token= video stream requests before they are routed.
+app.use("/api/part3", mediaRoutes);
 app.use("/api/part3", part3Routes);
 app.use("/api/part3", part3bRoutes);
 app.use("/api/part3", feedbackRoutes);
 app.use("/api/part3", certificateRoutes);
 app.use("/api/part3", capacityRoutes);
-app.use("/api/part3", continuityRoutes);
 app.use("/api/part3", tttRoutes);
 app.use((req, res) =>
   res.status(404).json({ success: false, message: "Route not found" }),

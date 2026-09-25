@@ -34,7 +34,9 @@ test("registration, approval, JWT, role redirect and profile editing remain func
     "Your account is pending approval.",
   );
   await login(page, "admin");
-  await page.getByRole("link", { name: "Users", exact: true }).click();
+  await page
+    .getByRole("link", { name: "User & Role Management", exact: true })
+    .click();
   const row = page.getByRole("row").filter({ hasText: email });
   await row.getByRole("button", { name: "Approve", exact: true }).click();
   await page.getByRole("button", { name: "Confirm approval" }).click();
@@ -76,7 +78,9 @@ test("SAMARTHYA-only branding and role-specific trainer navigation", async ({
   const text = await page.locator("body").innerText();
   expect(text).not.toMatch(/SIH|PS\s*26075|Capacity Connect|hackathon/i);
   await login(page, "trainer");
-  await expect(page.getByRole("link", { name: "My Courses" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Course Management" }),
+  ).toBeVisible();
   await expect(page.getByRole("link", { name: "Assessments" })).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Trainer Suitability" }),
@@ -96,7 +100,7 @@ test("approved trainer authors and publishes an owned course without coordinator
 }) => {
   const code = `SYN-TRAINER-${Date.now()}`;
   await login(page, "trainer");
-  await page.getByRole("link", { name: "My Courses" }).click();
+  await page.getByRole("link", { name: "Course Management" }).click();
   await page
     .getByLabel("Course title *")
     .fill("Synthetic Trainer Authored Programme");

@@ -2,6 +2,31 @@
 
 Dated, newest-first. `[x]` = has executed automated evidence. `[ ]` = unimplemented or device/live acceptance only. A file or route is not evidence.
 
+## **Page inventory, video lectures and continuity removal, 2026-09-26**
+
+Added `docs/page-inventory.md` — the agreed per-role page inventory plus a verified mapping of where each item actually lives. Evidence: `npm test --prefix server` → **60 passed / 0 failed** (was 57: −1 continuity test, +4 media tests); `npm run build --prefix client` → clean, 1704 modules.
+
+### Video lectures (§3, Demo integration)
+
+- [x] Models `P3MediaAsset` (`PROCESSING → READY`, `FAILED`, `TAKEN_DOWN`) and `P3MediaProgress` (resume position per trainee).
+- [x] `routes/mediaRoutes.js` mounted at `/api/part3`: course-scoped upload (MP4/WebM, 25 MB, content-signature checked), scoped listing, inline streaming with HTTP range support, coordinator moderation, uploader removal, playback progress.
+- [x] The stream route accepts `?token=` in addition to the bearer header so a `<video>` element can authenticate. Media mounts **before** `part3aRoutes`, which applies a blanket `auth` across `/api/part3`.
+- [x] Client `VideoLibrary` (upload with progress and status, trainee playback with resume) on the learning page; admin `MediaLibraryPage` with storage totals and takedown/restore.
+- [x] Tests `server/test/media.test.js`: owner-scoped upload, content validation, enrollment-scoped listing, resume upsert, token/range streaming, takedown withdrawal and cascade removal.
+- [ ] Live browser acceptance of a large upload.
+
+### Knowledge Continuity removed
+
+- [x] Deleted `continuityRoutes.js`, `ContinuityPage.jsx`, the `P3KnowledgeTransferPlan` model, the three navigation entries, the client route case and the `part3b.test.js` continuity test. Recorded as `WITHDRAWN` in the progress tables.
+
+### Navigation labels aligned to the inventory
+
+- [x] Renamed sidebar labels to the inventory wording (for example Courses → My Courses, Availability → Availability Management, Assigned Batches → Trainee List, Evaluation Queue → Evaluation Workspace, Assessment Oversight → Assessment Management). Items with no matching page are recorded as Partial or Not built in `page-inventory.md`.
+
+Boundary: video is direct upload with no transcoding or HLS packaging; playback progress is learning activity and never evidence.
+
+---
+
 ## **AI Features Implementation & Oversight Update, 2026-09-26**
 
 Implemented the seven sanctioned AI use cases and the human-review gate for skill-tag extraction. All six new explanation use cases are explanation-only from day one (read-only structured outputs, disclaimers, no automated record creation or competency changes). All calls logged to `P3AIRequestMetadata` for auditability. Evidence: `npm test --prefix server` → **57 passed / 0 failed**; `npm run build --prefix client` → clean.
@@ -73,7 +98,7 @@ Boundary: TTT eligibility thresholds, demand thresholds and coverage labels rema
 
 ## **Baseline checkpoint, 2026-09-23**
 
-Recorded in `implementation-progress.md` and `selected-workflow-coverage.md`. Backend regression passed 35/35 at that time; later runs reached 44/44. The 23-feature table there lists TTT (19) and knowledge continuity (20) as **MISSING** — TTT is now addressed (2026-09-25); continuity remains built as the Knowledge Transfer Plan feature.
+Recorded in `implementation-progress.md` and `selected-workflow-coverage.md`. Backend regression passed 35/35 at that time; later runs reached 44/44. The 23-feature table there lists TTT (19) and knowledge continuity (20) as **MISSING** — TTT is now addressed (2026-09-25); **knowledge continuity (20) was withdrawn and removed from the application on 2026-09-26** (routes, model, page, nav and tests deleted).
 
 ---
 
@@ -99,7 +124,6 @@ State throughout that these are application-level indicators over synthetic reco
 ## Explicitly deferred backlog
 
 - Live external AI provider verification (unchanged).
-- Knowledge continuity recorded-coverage indicators (§20 in the old table).
 - Persisted achievement award records plus one-time notifications (currently derived-only).
 - Departmental scoping beyond the existing department filter.
 - Real role-management UI (role change currently happens only through TTT verification).

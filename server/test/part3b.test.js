@@ -806,27 +806,3 @@ test('configured criterion decisions establish L2 while retaining explicit L3 pr
   assert.equal(gap.gap,1);
   assert.deepEqual(gap.criteria.map(c=>c.status),['DEMONSTRATED','DEMONSTRATED','NEEDS_PRACTICE']);
 });
-
-test('knowledge-transfer participation is scoped, retained and never promotes competency', async () => {
- const source=await P2.P2CompetencyRecord.findOne({trainee:trainee._id,status:'DEMONSTRATED'});
- assert.ok(source);
- const requestId=crypto.randomUUID();
- const body={title:'Synthetic continuity plan',sourceRecord:String(source._id),participants:[String(otherTrainee._id)],courses:[],practiceTask:'Practise a synthetic radar scenario.',reviewRequirements:'Submit evidence for an assigned subject reviewer.',dueDate:new Date(Date.now()+86400000).toISOString(),requestId};
- await request(app).post('/api/part3/continuity').set(auth(otherTrainee)).send(body).expect(403);
- const response=await request(app).post('/api/part3/continuity').set(auth(admin)).send(body).expect(200);
- const plan=response.body.data;
- const retry=await request(app).post('/api/part3/continuity').set(auth(admin)).send(body).expect(200);
- assert.equal(retry.body.data._id,plan._id);
- const unassigned=await request(app).get('/api/part3/continuity').set(auth(otherTrainer)).expect(200);
- assert.equal(unassigned.body.data.length,0);
- const contribution={text:'Completed synthetic practice; competency review has not occurred.',requestId:crypto.randomUUID()};
- await request(app).post(`/api/part3/continuity/${plan._id}/participation`).set(auth(otherTrainer)).send(contribution).expect(404);
- const before=await P2.P2CompetencyRecord.find({trainee:otherTrainee._id}).lean();
- await request(app).post(`/api/part3/continuity/${plan._id}/participation`).set(auth(otherTrainee)).send(contribution).expect(200);
- await request(app).post(`/api/part3/continuity/${plan._id}/participation`).set(auth(otherTrainee)).send(contribution).expect(200);
- assert.equal((await P3.P3KnowledgeTransferPlan.findById(plan._id)).participation.length,1);
- await request(app).post(`/api/part3/continuity/${plan._id}/close`).set(auth(otherTrainee)).send({status:'COMPLETED',reason:'Attempt to self-complete'}).expect(403);
- await request(app).post(`/api/part3/continuity/${plan._id}/close`).set(auth(admin)).send({status:'COMPLETED',reason:'Plan activity completed; human verification remains separate.'}).expect(200);
- const after=await P2.P2CompetencyRecord.find({trainee:otherTrainee._id}).lean();
- assert.deepEqual(after,before);
-});

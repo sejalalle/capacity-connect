@@ -9,6 +9,7 @@ import PageHeader from "../../components/ui/PageHeader";
 import StatusBadge from "../../components/ui/StatusBadge";
 import { Breadcrumbs } from "../../components/ui/Part2Components";
 import { useToast } from "../../components/ui/Toast";
+import VideoLibrary from "../../components/media/VideoLibrary";
 import { errorMessage } from "../../services/api";
 import { part3 } from "../../services/part3Service";
 
@@ -666,6 +667,7 @@ function Learning({ data, user, busy, act }) {
           records.
         </p>
       </Card>
+      <VideoLibrary user={user} />
     </div>
   );
 }

@@ -616,7 +616,7 @@ export const P3PrivateResource = make(
     sha256: String,
     purpose: {
       type: String,
-      enum: ["LEARNING", "SUBMISSION", "EVIDENCE"],
+      enum: ["LEARNING", "SUBMISSION", "EVIDENCE", "VIDEO"],
       required: true,
     },
     ...synthetic,
@@ -734,6 +734,46 @@ export const P3LearningProgress = make(
   ],
 );
 
+export const P3MediaAsset = make(
+  "P3MediaAsset",
+  {
+    title: { type: String, required: true },
+    course: oid("P2Course"),
+    batch: oid("P2Batch", false),
+    owner: oid("User"),
+    media: oid("P3PrivateResource", false),
+    status: {
+      type: String,
+      enum: ["PROCESSING", "READY", "FAILED", "TAKEN_DOWN"],
+      default: "PROCESSING",
+    },
+    failureReason: String,
+    mimeType: String,
+    size: Number,
+    moderatedBy: oid("User", false),
+    moderatedAt: Date,
+    moderationReason: String,
+    ...synthetic,
+  },
+  [
+    [{ course: 1, status: 1, createdAt: -1 }],
+    [{ owner: 1, createdAt: -1 }],
+  ],
+);
+
+export const P3MediaProgress = make(
+  "P3MediaProgress",
+  {
+    media: oid("P3MediaAsset"),
+    trainee: oid("User"),
+    positionSeconds: { type: Number, min: 0, default: 0 },
+    durationSeconds: { type: Number, min: 0, default: 0 },
+    completed: { type: Boolean, default: false },
+    ...synthetic,
+  },
+  [[{ media: 1, trainee: 1 }, { unique: true }]],
+);
+
 export const P3Question = make(
   "P3Question",
   {
@@ -849,46 +889,6 @@ export const P3HumanEvaluation = make(
   [
     [{ submission: 1, version: 1 }, { unique: true }],
     [{ evaluator: 1, status: 1 }],
-  ],
-);
-
-// Identified participant feedback. Never advertised as anonymous.
-export const P3KnowledgeTransferPlan = make(
-  "P3KnowledgeTransferPlan",
-  {
-    title: { type: String, required: true },
-    competency: oid("P2Competency"),
-    frameworkVersion: Number,
-    targetLevel: Number,
-    sourceExpert: oid("User"),
-    sourceRecord: oid("P2CompetencyRecord"),
-    participants: [oid("User")],
-    courses: [oid("P2Course")],
-    practiceTask: String,
-    reviewRequirements: String,
-    dueDate: Date,
-    status: {
-      type: String,
-      enum: ["ACTIVE", "COMPLETED", "CANCELLED"],
-      default: "ACTIVE",
-    },
-    createdBy: oid("User"),
-    requestId: String,
-    history: [{ actor: oid("User"), at: Date, status: String, reason: String }],
-    participation: [
-      {
-        participant: oid("User"),
-        at: Date,
-        text: String,
-        evidence: oid("P3Evidence", false),
-        requestId: String,
-      },
-    ],
-    ...synthetic,
-  },
-  [
-    [{ createdBy: 1, requestId: 1 }, { unique: true }],
-    [{ participants: 1, status: 1 }],
   ],
 );
 

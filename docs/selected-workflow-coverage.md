@@ -27,7 +27,7 @@ The existing backend regression suite passed **35/35** using an isolated MongoDB
 |17|Capability map|PARTIAL|Coverage tested; departmental accessible heatmap/table|
 |18|Trainer capacity|MISSING|Explicit planning inputs, workload and availability calculation|
 |19|Train-the-trainer|MISSING|Consent, teaching evaluation, explicit scoped authorization|
-|20|Knowledge continuity|MISSING|Recorded-coverage indicators and transfer plans|
+|20|Knowledge continuity|WITHDRAWN|Feature removed from the application on 2026-09-26; no longer in scope|
 |21|Feedback|PARTIAL|New mounted participant workflow; regression/E2E pending|
 |22|Notifications/announcements|PARTIAL|Existing audited workflow notices; expanded reminders/audiences|
 |23|Admin dashboard|PARTIAL|Integrate expanded operational sections using real records|
@@ -37,7 +37,7 @@ The existing backend regression suite passed **35/35** using an isolated MongoDB
 1. Preserve and test mounted core routes; repair shared presentation.
 2. Extend existing framework/assessment/evidence services for baseline and criteria.
 3. Connect completion credentials, participant feedback and workplace follow-up.
-4. Add scoped capacity, trainer development and continuity workflows.
+4. Add scoped capacity and trainer development workflows.
 5. Verify connected journeys and all roles under the shared reference design.
 
 ## Design

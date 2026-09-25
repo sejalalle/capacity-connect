@@ -22,6 +22,7 @@ import {
   Activity,
   Award,
   Megaphone,
+  Video,
 } from "lucide-react";
 
 export const navigationGroups = {
@@ -37,7 +38,7 @@ export const navigationGroups = {
         ["Skill Gaps", "skill-gaps", ChartNoAxesColumnIncreasing],
         ["Competency History", "competency-history", History],
         ["Skill Suggestions", "skill-suggestions", BrainCircuit],
-        ["Achievements", "achievements", Award],
+        ["Achievements & Badges", "achievements", Award],
       ],
     },
     {
@@ -45,46 +46,45 @@ export const navigationGroups = {
       items: [
         ["Training Needs", "training-needs", Route],
         ["Learning Paths", "learning-paths", Route],
-        ["Courses", "courses", Library],
+        ["My Courses", "courses", Library],
         ["My Nominations", "nominations", ShieldCheck],
         ["Training Calendar", "calendar", CalendarDays],
         ["My Learning", "learning", BookOpenCheck],
         ["Train the Trainer", "train-the-trainer", UserCheck],
-        ["Trainer Match", "trainer-match", UserCheck],
+        ["Trainer / Mentorship", "trainer-match", UserCheck],
       ],
     },
     {
       group: "Assessments & Evidence",
       items: [
-        ["Assessments", "assessments", ClipboardCheck],
+        ["My Assessments", "assessments", ClipboardCheck],
         ["Published Results", "results", ShieldCheck],
-        ["Evidence", "evidence", FileCheck2],
+        ["Evidence Portfolio", "evidence", FileCheck2],
         ["Follow-up Actions", "follow-ups", Route],
       ],
     },
     {
       group: "Account",
       items: [
-        ["Knowledge Continuity", "continuity", BookOpenCheck],
-        ["Completion Certificates", "certificates", FileCheck2],
+        ["My Certificates", "certificates", FileCheck2],
         ["Training Feedback", "feedback", ClipboardCheck],
         ["Announcements", "announcements", Megaphone],
         ["Notifications", "notifications", Bell],
-        ["Profile", "profile", UserRound],
+        ["Profile & Settings", "profile", UserRound],
       ],
     },
   ],
   trainer: [
     {
       group: "Overview",
-      items: [["Dashboard", "", LayoutDashboard]],
+      items: [["Trainer Dashboard", "", LayoutDashboard]],
     },
     {
       group: "Course Management",
       items: [
-        ["My Courses", "courses", Library],
+        ["Course Management", "courses", Library],
         ["Training Calendar", "calendar", CalendarDays],
-        ["Learning Resources", "learning", BookOpenCheck],
+        ["Resource Library", "learning", BookOpenCheck],
         ["Question Bank", "question-bank", ListChecks],
         ["Assessments", "assessments", ClipboardCheck],
       ],
@@ -92,9 +92,9 @@ export const navigationGroups = {
     {
       group: "Delivery & Review",
       items: [
-        ["Assigned Batches", "assigned-batches", UserCheck],
-        ["Availability", "availability", Clock3],
-        ["Evaluation Queue", "evaluations", ClipboardCheck],
+        ["Trainee List", "assigned-batches", UserCheck],
+        ["Availability Management", "availability", Clock3],
+        ["Evaluation Workspace", "evaluations", ClipboardCheck],
         ["Published Results", "results", ShieldCheck],
         ["Evidence Review", "evidence-review", FileCheck2],
         ["Competency Decisions", "competency-decisions", Fingerprint],
@@ -106,11 +106,10 @@ export const navigationGroups = {
       items: [
         ["Follow-up Actions", "follow-ups", Route],
         ["AI Question Drafts", "ai-question-drafts", BrainCircuit],
-        ["Trainer Profile & Expertise", "trainer-profile", UserRound],
+        ["Trainer Profile", "trainer-profile", UserRound],
         ["Account Profile", "profile", UserRound],
-        ["Knowledge Continuity", "continuity", BookOpenCheck],
-        ["Completion Certificates", "certificates", FileCheck2],
-        ["Training Feedback", "feedback", ClipboardCheck],
+        ["My Certificates", "certificates", FileCheck2],
+        ["Feedback", "feedback", ClipboardCheck],
         ["Announcements", "announcements", Megaphone],
         ["Notifications", "notifications", Bell],
       ],
@@ -119,14 +118,14 @@ export const navigationGroups = {
   admin: [
     {
       group: "Overview",
-      items: [["Dashboard", "", LayoutDashboard]],
+      items: [["Admin Dashboard", "", LayoutDashboard]],
     },
     {
       group: "People & Capability",
       items: [
-        ["Users", "users", Users],
+        ["User & Role Management", "users", Users],
         ["Competency Framework", "competencies", Fingerprint],
-        ["Job Role Requirements", "job-role-requirements", Building2],
+        ["Role Mapping", "job-role-requirements", Building2],
         ["Organizational Capability", "organizational-capability", Building2],
         ["Train the Trainer", "train-the-trainer", UserCheck],
       ],
@@ -136,7 +135,8 @@ export const navigationGroups = {
       items: [
         ["Training Needs", "training-needs", Route],
         ["Learning Paths", "learning-paths", Route],
-        ["Courses", "courses", Library],
+        ["Course Management", "courses", Library],
+        ["Media Library", "media-library", Video],
         ["Batches", "batches", CalendarDays],
         ["Nominations", "nominations", ShieldCheck],
         ["Training Calendar", "calendar", CalendarDays],
@@ -147,7 +147,7 @@ export const navigationGroups = {
       items: [
         ["Trainer Discovery", "trainer-discovery", UserCheck],
         ["Assignment Management", "trainer-assignments", UserCheck],
-        ["Assessment Oversight", "assessments", ClipboardCheck],
+        ["Assessment Management", "assessments", ClipboardCheck],
         ["Evaluator Queue", "evaluations", ClipboardCheck],
         ["Result Publication", "results", ShieldCheck],
         ["Review Oversight", "review-oversight", FileCheck2],
@@ -161,9 +161,8 @@ export const navigationGroups = {
         ["Training Demand", "training-demand", ChartNoAxesColumnIncreasing],
         ["AI Activity", "ai-activity", Activity],
         ["Audit Logs", "audit-logs", ScrollText],
-        ["Knowledge Continuity", "continuity", BookOpenCheck],
-        ["Completion Certificates", "certificates", FileCheck2],
-        ["Training Feedback", "feedback", ClipboardCheck],
+        ["Certification Management", "certificates", FileCheck2],
+        ["Feedback Management", "feedback", ClipboardCheck],
         ["Announcements", "announcements", Megaphone],
         ["Notifications", "notifications", Bell],
         ["Profile", "profile", UserRound],

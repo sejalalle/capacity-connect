@@ -1845,6 +1845,28 @@ dd {
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
 }
+.media-row {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 12px;
+}
+.media-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.media-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.lecture-player {
+  width: 100%;
+  max-height: 360px;
+  border-radius: var(--radius);
+  background: #000;
+}
 .progress-track {
   height: 8px;
   border-radius: 4px;

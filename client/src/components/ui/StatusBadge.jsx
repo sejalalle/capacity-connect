@@ -12,6 +12,7 @@ const tones = {
   returned: "amber",
   "returned-for-revision": "amber",
   waitlisted: "amber",
+  processing: "amber",
   submitted: "amber",
   open: "amber",
   draft: "neutral",
@@ -31,6 +32,7 @@ const tones = {
   verified: "teal",
   succeeded: "teal",
   completed: "teal",
+  ready: "teal",
 
   // Danger / Suspended / Rejected / Ineligible / Timed out / Fail
   rejected: "red",
@@ -43,6 +45,7 @@ const tones = {
   "timed-out": "red",
   "invalid-output": "red",
   revoked: "red",
+  "taken-down": "red",
 
   // Neutral / Info / Progress
   "in-progress": "blue",

@@ -1,5 +1,5 @@
 import { Routes, Route, Link } from "react-router-dom";
-import ContinuityPage from "../pages/continuity/ContinuityPage";
+import MediaLibraryPage from "../pages/media/MediaLibraryPage";
 import CapacityPage from "../pages/capacity/CapacityPage";
 import CertificatesPage from "../pages/certificates/CertificatesPage";
 import FeedbackPage from "../pages/feedback/FeedbackPage";
@@ -89,9 +89,7 @@ export default function AppRoutes() {
                       key={path}
                       path={path}
                       element={
-                        path === "continuity" ? (
-                          <ContinuityPage />
-                        ) : path === "trainer-capacity" ? (
+                        path === "trainer-capacity" ? (
                           <CapacityPage />
                         ) : path === "certificates" ? (
                           <CertificatesPage />
@@ -105,6 +103,8 @@ export default function AppRoutes() {
                           <TrainerMatchPage />
                         ) : path === "training-demand" ? (
                           <TrainingDemandPage />
+                        ) : path === "media-library" ? (
+                          <MediaLibraryPage />
                         ) : path === "train-the-trainer" ||
                           path === "ttt-candidates" ? (
                           <TttPage />

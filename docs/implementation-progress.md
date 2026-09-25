@@ -27,7 +27,7 @@ The existing backend regression suite passed **35/35** using an isolated MongoDB
 |17|Capability map|PARTIAL|Coverage tested; departmental accessible heatmap/table|
 |18|Trainer capacity|PARTIAL|Mounted interval-based estimate and UI action tested; persistent saved plans and linked trainer-development action remain|
 |19|Train-the-trainer|MISSING|Consent, teaching evaluation, explicit scoped authorization|
-|20|Knowledge continuity|MISSING|Recorded-coverage indicators and transfer plans|
+|20|Knowledge continuity|WITHDRAWN|Feature removed from the application on 2026-09-26; no longer in scope|
 |21|Feedback|PARTIAL|New mounted participant workflow; regression/E2E pending|
 |22|Notifications/announcements|PARTIAL|Existing audited workflow notices; expanded reminders/audiences|
 |23|Admin dashboard|PARTIAL|Integrate expanded operational sections using real records|
@@ -37,7 +37,7 @@ The existing backend regression suite passed **35/35** using an isolated MongoDB
 1. Preserve and test mounted core routes; repair shared presentation.
 2. Extend existing framework/assessment/evidence services for baseline and criteria.
 3. Connect completion credentials, participant feedback and workplace follow-up.
-4. Add scoped capacity, trainer development and continuity workflows.
+4. Add scoped capacity and trainer development workflows.
 5. Verify connected journeys and all roles under the shared reference design.
 
 ## Design
@@ -68,7 +68,7 @@ A file, model or route is not acceptance evidence. Mark WORKING only after relev
 |15|certificateRoutes, certificateService, P3CompletionCertificate, pinned certificatePolicy|CertificatesPage at each role’s /certificates|Backend tests prove conditions/idempotency/private PDF/revocation; UI issuance blocked-case test pending label fix upstream|
 |16|POST /api/part3/follow-ups/:id/workplace-entries; recordWorkplaceEntry|Part3BPage follow-ups|Owner/assigned observer/idempotency tested; text records do not verify competency|
 |18|POST /api/part3/capacity; capacityService|Admin /trainer-capacity|Interval math and Admin scope tested; browser calculation passed; output explicitly an estimate|
-|19–20|No mounted workflow yet|No completed screens|Train-the-trainer and continuity remain missing|
+|19–20|No mounted workflow yet|No completed screens|Train-the-trainer remains missing; knowledge continuity was withdrawn on 2026-09-26|
 |21|feedbackRoutes; P3Feedback|FeedbackPage at each role’s /feedback|Backend participant/duplicate/privacy tests pass; current browser selector failure needs correction|
 |22|P2Notification, existing service notices, new credential/workplace notices|Existing notifications page|Existing event tests pass; expanded reminders/announcement audiences pending|
 
@@ -77,7 +77,7 @@ A file, model or route is not acceptance evidence. Mark WORKING only after relev
 1. Correct feedback form label association and rerun selected-workflow browser tests without weakening assertions.
 2. Extend versioned competency criteria and authoritative decision checks, then gap/recommendation UI.
 3. Extend existing assessment engine for pre-enrollment baseline and diagnostic purposes with unchanged course enrollment gates.
-4. Implement train-the-trainer and continuity using existing users/learning/evidence; avoid role replacement.
+4. Implement train-the-trainer using existing users/learning/evidence; avoid role replacement.
 5. Complete policy configuration, reminders, dashboards, integrated synthetic journeys, final tests and screenshots.
 
 The complete selected 23-area scope is **not yet complete**. No claim of full demo readiness is made.

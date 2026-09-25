@@ -6,7 +6,10 @@
       "Shell(if:*)",
       "Shell(else:*)",
       "Shell(npx playwright install chromium)",
-      "Shell(git:*)"
+      "Shell(git:*)",
+      "Shell(Remove-Item:*)",
+      "Shell(Write-Output:*)",
+      "powershell"
     ],
     "deny": [],
     "defaultMode": "default"
