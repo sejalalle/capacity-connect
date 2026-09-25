@@ -11,6 +11,8 @@ import StatusBadge from "../../components/ui/StatusBadge";
 export default function TrainerMatchPage() {
   const [report, setReport] = useState(null);
   const [error, setError] = useState("");
+  const [justifications, setJustifications] = useState({});
+  const [loadingAi, setLoadingAi] = useState({});
 
   const load = useCallback(async () => {
     setError("");
@@ -20,6 +22,27 @@ export default function TrainerMatchPage() {
       setError(errorMessage(e));
     }
   }, []);
+
+  const fetchAiJustification = async (batchId, sessionId) => {
+    setLoadingAi((prev) => ({ ...prev, [sessionId]: true }));
+    try {
+      const res = await part3.post("/ai/explain-trainer-match", {
+        batchId,
+        sessionId,
+      });
+      setJustifications((prev) => ({
+        ...prev,
+        [sessionId]: res.justification,
+      }));
+    } catch (e) {
+      setJustifications((prev) => ({
+        ...prev,
+        [sessionId]: errorMessage(e),
+      }));
+    } finally {
+      setLoadingAi((prev) => ({ ...prev, [sessionId]: false }));
+    }
+  };
 
   useEffect(() => {
     load();
@@ -71,11 +94,51 @@ export default function TrainerMatchPage() {
                         </td>
                         <td>
                           {session.reasons.length ? (
-                            <ul>
-                              {session.reasons.map((reason, index) => (
-                                <li key={index}>{reason}</li>
-                              ))}
-                            </ul>
+                            <>
+                              <ul>
+                                {session.reasons.map((reason, index) => (
+                                  <li key={index}>{reason}</li>
+                                ))}
+                              </ul>
+                              {justifications[session.sessionId] ? (
+                                <div
+                                  style={{
+                                    marginTop: "0.5rem",
+                                    padding: "0.5rem 0.75rem",
+                                    background: "#f0fdf4",
+                                    border: "1px solid #bbf7d0",
+                                    borderRadius: "6px",
+                                    fontSize: "0.85rem",
+                                    color: "#166534",
+                                  }}
+                                >
+                                  <strong>AI Summary: </strong>
+                                  {justifications[session.sessionId]}
+                                </div>
+                              ) : (
+                                <div style={{ marginTop: "0.5rem" }}>
+                                  <button
+                                    type="button"
+                                    className="button button-ghost"
+                                    style={{
+                                      fontSize: "0.8rem",
+                                      padding: "2px 8px",
+                                    }}
+                                    disabled={loadingAi[session.sessionId]}
+                                    onClick={() =>
+                                      fetchAiJustification(
+                                        match.batch._id,
+                                        session.sessionId,
+                                      )
+                                    }
+                                  >
+                                    {loadingAi[session.sessionId]
+                                      ? "Generating..."
+                                      : "✨ AI Justification"}
+                                  </button>
+                                </div>
+                              )}
+                            </>
                           ) : (
                             "—"
                           )}
