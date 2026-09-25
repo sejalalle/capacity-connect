@@ -506,7 +506,17 @@ export const P3AIRequestMetadata = make(
     actor: oid("User"),
     feature: {
       type: String,
-      enum: ["SKILL_EXTRACTION", "COMPETENCY_MATCHING", "MCQ_DRAFTING"],
+      enum: [
+        "SKILL_EXTRACTION",
+        "COMPETENCY_MATCHING",
+        "MCQ_DRAFTING",
+        "SKILL_GAP_EXPLANATION",
+        "COURSE_RECOMMENDATION_EXPLANATION",
+        "TRAINER_MATCH_EXPLANATION",
+        "EVIDENCE_SUMMARIZATION",
+        "FEEDBACK_SUMMARIZATION",
+        "TTT_CANDIDATE_SUMMARIZATION",
+      ],
       required: true,
     },
     provider: String,

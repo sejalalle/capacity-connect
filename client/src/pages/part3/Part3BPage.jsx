@@ -213,6 +213,8 @@ export default function Part3BPage() {
 function EvidenceWorkspace({ segment, data, form, setForm, busy, act }) {
   const selected = data.find((x) => String(x._id) === form.evidenceId);
   const set = (key) => (value) => setForm({ ...form, [key]: value });
+  const [evidenceSummary, setEvidenceSummary] = useState(null);
+  const [summarizing, setSummarizing] = useState(false);
   return (
     <div
       className={`dashboard-grid ${["evidence-review", "competency-decisions"].includes(segment) ? "review-workspace" : ""}`}
@@ -366,6 +368,55 @@ function EvidenceWorkspace({ segment, data, form, setForm, busy, act }) {
               ))}
             </select>
           </label>
+          {selected && (
+            <div style={{ margin: "0.75rem 0" }}>
+              {evidenceSummary ? (
+                <div
+                  style={{
+                    padding: "0.75rem",
+                    background: "#f8fafc",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "6px",
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  <strong style={{ color: "#0f172a" }}>AI Evidence Summary:</strong>
+                  <p style={{ margin: "0.25rem 0", color: "#334155" }}>
+                    {evidenceSummary.summary}
+                  </p>
+                  {evidenceSummary.keyPoints?.length > 0 && (
+                    <ul style={{ margin: "0.25rem 0 0 1.25rem", color: "#475569" }}>
+                      {evidenceSummary.keyPoints.map((kp, idx) => (
+                        <li key={idx}>{kp}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="button button-ghost"
+                  style={{ fontSize: "0.8rem", padding: "4px 10px" }}
+                  disabled={summarizing}
+                  onClick={async () => {
+                    setSummarizing(true);
+                    try {
+                      const res = await part3.post("/ai/explain-evidence", {
+                        evidenceId: selected._id,
+                      });
+                      setEvidenceSummary(res);
+                    } catch (e) {
+                      setEvidenceSummary({ summary: errorMessage(e) });
+                    } finally {
+                      setSummarizing(false);
+                    }
+                  }}
+                >
+                  {summarizing ? "Summarizing..." : "✨ AI Summarize Evidence"}
+                </button>
+              )}
+            </div>
+          )}
           {segment === "evidence-review" ? (
             <>
               <Field
@@ -639,6 +690,7 @@ function Capability({ data }) {
 
 function AIWorkspace({ segment, settings, form, setForm, busy, act }) {
   const [results, setResults] = useState([]);
+  const [explanationResult, setExplanationResult] = useState(null);
   const set = (key) => (value) => setForm({ ...form, [key]: value });
   if (segment === "ai-activity")
     return (
@@ -851,51 +903,237 @@ function AIWorkspace({ segment, settings, form, setForm, busy, act }) {
                     </small>
                   </div>
                   {x.kind === "SKILL" ? (
-                    <button
-                      className="button button-secondary"
-                      disabled={busy}
-                      onClick={() =>
-                        act(
-                          () =>
-                            part3.post(
-                              `/ai/skill-extraction/${x.requestId}/accept`,
-                              { tag: x.tag, action: "ACCEPTED" },
-                            ),
-                          "Suggestion accepted as a self-declared skill",
-                          false,
-                        )
-                      }
-                    >
-                      Accept as self-declared
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        className="button button-secondary"
+                        disabled={busy}
+                        onClick={() =>
+                          act(
+                            () =>
+                              part3.post(
+                                `/ai/skill-extraction/${x.requestId}/accept`,
+                                { tag: x.tag, action: "ACCEPTED" },
+                              ),
+                            "Suggestion accepted as a self-declared skill",
+                            false,
+                          )
+                        }
+                      >
+                        Accept as self-declared
+                      </button>
+                      <button
+                        className="button button-ghost"
+                        disabled={busy}
+                        onClick={() =>
+                          act(
+                            () =>
+                              part3.post(
+                                `/ai/skill-extraction/${x.requestId}/accept`,
+                                { tag: x.tag, action: "REJECTED" },
+                              ),
+                            "Suggestion rejected — not added to profile",
+                            false,
+                          )
+                        }
+                      >
+                        Reject
+                      </button>
+                    </div>
                   ) : x.kind === "AI_MATCH" ? (
-                    <button
-                      className="button button-secondary"
-                      disabled={busy || !x.competencyId}
-                      onClick={() =>
-                        act(
-                          () =>
-                            part3.post(
-                              `/ai/competency-matching/${x.requestId}/review`,
-                              {
-                                action: "ACCEPTED",
-                                competency: x.competencyId,
-                                reason:
-                                  "Human confirmed this catalogue suggestion; no proficiency or competency status changed.",
-                              },
-                            ),
-                          "Catalogue mapping confirmation recorded",
-                          false,
-                        )
-                      }
-                    >
-                      Confirm mapping
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        className="button button-secondary"
+                        disabled={busy || !x.competencyId}
+                        onClick={() =>
+                          act(
+                            () =>
+                              part3.post(
+                                `/ai/competency-matching/${x.requestId}/review`,
+                                {
+                                  action: "ACCEPTED",
+                                  competency: x.competencyId,
+                                  reason:
+                                    "Human confirmed this catalogue suggestion; no proficiency or competency status changed.",
+                                },
+                              ),
+                            "Catalogue mapping confirmation recorded",
+                            false,
+                          )
+                        }
+                      >
+                        Confirm mapping
+                      </button>
+                      <button
+                        className="button button-ghost"
+                        disabled={busy}
+                        onClick={() =>
+                          act(
+                            () =>
+                              part3.post(
+                                `/ai/competency-matching/${x.requestId}/review`,
+                                {
+                                  action: "REJECTED",
+                                  reason:
+                                    "Human rejected this catalogue suggestion.",
+                                },
+                              ),
+                            "Suggestion rejected — no mapping created",
+                            false,
+                          )
+                        }
+                      >
+                        Reject
+                      </button>
+                    </div>
                   ) : (
                     <span className="demo-label">Manual catalogue result</span>
                   )}
                 </article>
               ))}
+            </div>
+          )}
+        </Card>
+      )}
+      {segment === "skill-suggestions" && (
+        <Card
+          title="AI Explanation Assistant"
+          subtitle="Generate transparent, human-readable explanations. AI outputs are explanations only; they never alter competency records or substitute for human decisions."
+          className="span-2"
+        >
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "1.5rem",
+            }}
+          >
+            <div>
+              <h4 style={{ margin: "0 0 0.5rem 0", color: "#1e293b" }}>
+                Explain Skill Gap
+              </h4>
+              <Field
+                label="Competency ID"
+                value={form.explainCompetencyId}
+                onChange={set("explainCompetencyId")}
+                required
+              />
+              <Field
+                label="Required Level (1-5)"
+                type="number"
+                value={form.explainRequiredLevel || 3}
+                onChange={set("explainRequiredLevel")}
+                required
+              />
+              <button
+                type="button"
+                className="button button-secondary"
+                disabled={busy || !form.explainCompetencyId || !settings.enabled}
+                onClick={async () => {
+                  const val = await act(
+                    () =>
+                      part3.post("/ai/explain-gap", {
+                        competencyId: form.explainCompetencyId,
+                        requiredLevel: Number(form.explainRequiredLevel || 3),
+                      }),
+                    "AI skill gap explanation generated",
+                    false,
+                  );
+                  if (val) setExplanationResult(val);
+                }}
+              >
+                Explain Skill Gap
+              </button>
+            </div>
+            <div>
+              <h4 style={{ margin: "0 0 0.5rem 0", color: "#1e293b" }}>
+                Explain Course Recommendation
+              </h4>
+              <Field
+                label="Course ID"
+                value={form.explainCourseId}
+                onChange={set("explainCourseId")}
+                required
+              />
+              <button
+                type="button"
+                className="button button-secondary"
+                disabled={
+                  busy ||
+                  !form.explainCompetencyId ||
+                  !form.explainCourseId ||
+                  !settings.enabled
+                }
+                onClick={async () => {
+                  const val = await act(
+                    () =>
+                      part3.post("/ai/explain-course", {
+                        competencyId: form.explainCompetencyId,
+                        requiredLevel: Number(form.explainRequiredLevel || 3),
+                        courseId: form.explainCourseId,
+                      }),
+                    "AI course recommendation explanation generated",
+                    false,
+                  );
+                  if (val) setExplanationResult(val);
+                }}
+              >
+                Explain Course Match
+              </button>
+            </div>
+          </div>
+          {explanationResult && (
+            <div
+              style={{
+                marginTop: "1rem",
+                padding: "1rem",
+                background: "#f8fafc",
+                border: "1px solid #cbd5e1",
+                borderRadius: "8px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <strong style={{ color: "#0f172a" }}>
+                  AI Explanation Output
+                </strong>
+                <span className="demo-label">
+                  {explanationResult.requestId
+                    ? `Req: ${explanationResult.requestId.slice(0, 8)}`
+                    : "AI Generated"}
+                </span>
+              </div>
+              {explanationResult.explanation && (
+                <p style={{ margin: "0.5rem 0", color: "#334155" }}>
+                  {explanationResult.explanation}
+                </p>
+              )}
+              {explanationResult.nextSteps && (
+                <p
+                  style={{
+                    margin: "0.25rem 0",
+                    color: "#0369a1",
+                    fontSize: "0.9rem",
+                  }}
+                >
+                  <strong>Next steps:</strong> {explanationResult.nextSteps}
+                </p>
+              )}
+              {explanationResult.disclaimer && (
+                <small
+                  style={{
+                    display: "block",
+                    marginTop: "0.5rem",
+                    color: "#64748b",
+                  }}
+                >
+                  {explanationResult.disclaimer}
+                </small>
+              )}
             </div>
           )}
         </Card>

@@ -16,10 +16,16 @@ import {
   decideCompetency,
   deterministicCompetencyMatch,
   evidenceFor,
+  explainCourseRecommendation,
+  explainGap,
+  explainTrainerMatch,
   passportFor,
   reviewEvidence,
   reviseEvidence,
   submitEvidence,
+  summarizeEvidence,
+  summarizeFeedback,
+  summarizeTttCandidate,
   supersedeDecision,
   updateFollowUp,
   recordWorkplaceEntry,
@@ -463,6 +469,156 @@ router.get("/ai/activity", admin, async (req, res) =>
       .limit(100)
       .lean(),
   ),
+);
+
+// ── Explanation-only routes (§ Sanctioned AI slots) ───────────────────────────
+// These endpoints call the AI for readable explanations and summaries.
+// They NEVER update competency records, mutate workflow status, decide
+// assignments, or substitute for human decisions. All requests are logged
+// to P3AIRequestMetadata for audit trail visibility.
+
+router.post(
+  "/ai/explain-gap",
+  all,
+  body({ competencyId: objectId, requiredLevel: z.number().int().min(1).max(5) }),
+  async (req, res) => {
+    const competency = await P2.P2Competency.findById(req.body.competencyId).lean();
+    if (!competency) fail(404, "Competency not found");
+    const record = await P2.P2CompetencyRecord.findOne({
+      trainee: req.user._id,
+      competency: competency._id,
+    }).lean();
+    ok(
+      res,
+      await explainGap(req.user, {
+        competency,
+        requiredLevel: req.body.requiredLevel,
+        demonstratedLevel: record?.demonstratedLevel ?? null,
+        evidenceStatus: record?.status || "NOT_ASSESSED",
+        category: competency.domain || "",
+      }),
+    );
+  },
+);
+
+router.post(
+  "/ai/explain-course",
+  all,
+  body({
+    competencyId: objectId,
+    requiredLevel: z.number().int().min(1).max(5),
+    courseId: objectId,
+  }),
+  async (req, res) => {
+    const [competency, course] = await Promise.all([
+      P2.P2Competency.findById(req.body.competencyId).lean(),
+      P2.P2Course.findById(req.body.courseId).lean(),
+    ]);
+    if (!competency) fail(404, "Competency not found");
+    if (!course) fail(404, "Course not found");
+    const record = await P2.P2CompetencyRecord.findOne({
+      trainee: req.user._id,
+      competency: competency._id,
+    }).lean();
+    ok(
+      res,
+      await explainCourseRecommendation(
+        req.user,
+        {
+          competency,
+          requiredLevel: req.body.requiredLevel,
+          demonstratedLevel: record?.demonstratedLevel ?? null,
+        },
+        course,
+      ),
+    );
+  },
+);
+
+router.post(
+  "/ai/explain-trainer-match",
+  all,
+  body({ batchId: objectId, sessionId: objectId }),
+  async (req, res) => {
+    const { calculateSuitability } = await import(
+      "../services/part3aService.js"
+    );
+    const rankings = await calculateSuitability(
+      req.body.batchId,
+      req.body.sessionId,
+    );
+    const top = rankings[0];
+    if (!top) fail(404, "No trainer rankings available for this session");
+    ok(res, await explainTrainerMatch(req.user, top));
+  },
+);
+
+router.post(
+  "/ai/explain-evidence",
+  all,
+  body({ evidenceId: objectId }),
+  async (req, res) => {
+    const evidence = await P3.P3Evidence.findById(req.body.evidenceId)
+      .populate("claimedCompetencies.competency")
+      .lean();
+    if (!evidence) fail(404, "Evidence not found");
+    if (
+      req.user.role === "trainee" &&
+      id(evidence.owner) !== id(req.user)
+    )
+      fail(403, "Evidence ownership is required");
+    ok(res, await summarizeEvidence(req.user, evidence));
+  },
+);
+
+router.post(
+  "/ai/summarize-feedback",
+  reviewer,
+  body({ batchId: objectId.optional(), courseId: objectId.optional() }),
+  async (req, res) => {
+    const query = {};
+    if (req.body.batchId) query.batch = req.body.batchId;
+    if (req.body.courseId) query.course = req.body.courseId;
+    const items = await P3.P3Feedback.find(query)
+      .select("rating comment")
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+    ok(res, await summarizeFeedback(req.user, items));
+  },
+);
+
+router.post(
+  "/ai/summarize-ttt-candidate",
+  reviewer,
+  body({ nominationId: objectId }),
+  async (req, res) => {
+    const nomination = await P3.P3TTTNomination.findById(req.body.nominationId)
+      .populate("candidate program competency")
+      .lean();
+    if (!nomination) fail(404, "TTT nomination not found");
+    const practice = await P3.P3TTTPractice.findOne({
+      nomination: nomination._id,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+    const evaluation = practice
+      ? await P3.P3TTTEvaluation.findOne({ practice: practice._id })
+          .sort({ createdAt: -1 })
+          .lean()
+      : null;
+    ok(
+      res,
+      await summarizeTttCandidate(req.user, {
+        candidate: nomination.candidate,
+        program: nomination.program,
+        competency: nomination.competency,
+        nomination,
+        practice,
+        evaluation,
+      }),
+    );
+  },
 );
 
 export default router;

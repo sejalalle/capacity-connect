@@ -2,6 +2,24 @@
 
 Dated, newest-first. `[x]` = has executed automated evidence. `[ ]` = unimplemented or device/live acceptance only. A file or route is not evidence.
 
+## **AI Features Implementation & Oversight Update, 2026-09-26**
+
+Implemented the seven sanctioned AI use cases and the human-review gate for skill-tag extraction. All six new explanation use cases are explanation-only from day one (read-only structured outputs, disclaimers, no automated record creation or competency changes). All calls logged to `P3AIRequestMetadata` for auditability. Evidence: `npm test --prefix server` → **57 passed / 0 failed**; `npm run build --prefix client` → clean.
+
+### Sanctioned AI Slots Implemented
+- [x] **MCQ Drafting** (Core/Demo integration) — `POST /api/part3/ai-question-drafts` creates unpublished drafts for human review.
+- [x] **Skill-gap explanation** (Core/Demo integration) — `POST /api/part3/ai/explain-gap` produces 2-3 sentence explanation + next steps without updating competency records.
+- [x] **Course recommendation explanation** (Core/Demo integration) — `POST /api/part3/ai/explain-course` explains course mapping rationale for competency development.
+- [x] **Trainer-match explanation** (Core/Demo integration) — `POST /api/part3/ai/explain-trainer-match` returns 1-liner justification from suitability factor points. Wired into `TrainerMatchPage.jsx`.
+- [x] **Evidence summarization** (Core/Demo integration) — `POST /api/part3/ai/explain-evidence` returns structured summary and key points. Wired into `EvidenceWorkspace` on `Part3BPage.jsx`.
+- [x] **Feedback summarization & theme extraction** (Core/Demo integration) — `POST /api/part3/ai/summarize-feedback` extracts themes and sentiment across feedback entries.
+- [x] **TTT candidate summarization** (Core/Demo integration) — `POST /api/part3/ai/summarize-ttt-candidate` generates candidate readiness blurb and teaching strengths. Wired into `TttPage.jsx`.
+
+### Skill Extraction Review Gate
+- [x] Added explicit **Reject** button alongside **Accept** in `Part3BPage.jsx` for both self-declared skills and competency matching. Rejected suggestions log `humanAction: "REJECTED"` and never alter user profile or competency records.
+
+---
+
 ## **Gap-closure update, 2026-09-25**
 
 Closed the five gaps between the planned Samarthya flow and the build, and repaired a broken server import. Evidence: `npm test --prefix server` → **56 passed / 0 failed**; `npm run build --prefix client` → clean; new suites `server/test/ttt.test.js` and `server/test/gaps.test.js`.

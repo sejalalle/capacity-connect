@@ -1,14 +1,14 @@
 # IMPLEMENTED WORKFLOWS — what actually works
 
-Snapshot date: **2026-09-25**. This is the **actual**, not the target. Inspect code before relying on any row.
+Snapshot date: **2026-09-26**. This is the **actual**, not the target. Inspect code before relying on any row.
 
 ## Architecture section → working behaviour or boundary
 
 | § | Area | Actual behaviour | Boundary |
 | --- | --- | --- | --- |
-| 1 | Competency workflow spine | Registered → approved → profile → gap → training need → nomination → admission → learning → assessment → evaluation → result → evidence → human decision → passport. DB-backed and tested. | Live external AI not verified. |
-| 2 | Trainee side | Passport, gaps, training needs, nominations, learning, assessments, evidence, follow-ups, certificates all mounted. | Recommendation UI is course cards + skill suggestions, not a single "why" engine. |
-| 3 | Supporting trainee features | Calendar (list), notifications, feedback, certificates, **achievements**, **trainer match** mounted. | Calendar is not a month grid. |
+| 1 | Competency workflow spine | Registered → approved → profile → gap → training need → nomination → admission → learning → assessment → evaluation → result → evidence → human decision → passport. DB-backed and tested. | AI assistance is strictly explanation/drafting; human decisions remain authoritative. |
+| 2 | Trainee side | Passport, gaps, training needs, nominations, learning, assessments, evidence, follow-ups, certificates all mounted. **AI gap and course recommendation explanations** available. | AI explanations provide reasoning context; never modify records. |
+| 3 | Supporting trainee features | Calendar (list), notifications, feedback, certificates, **achievements**, **trainer match** mounted with **AI 1-line match justifications**. | Calendar is not a month grid. |
 | 4 | Trainer side | Profile/expertise, availability, assignments, learning delivery, question bank, assessments, evaluations, results, evidence review, competency decisions mounted. | No dedicated resources-only or sessions-only page. |
 | 5 | Train the Trainer | **New.** Program → nomination → accept → teaching practice → evaluation → admin verification. Verification creates reviewed expertise and promotes a trainee to trainer. | Eligibility thresholds are proposed config; live demo acceptance pending. |
 | 6 | Admin side | Users/approval, competency framework, job-role requirements, courses, batches, nominations, audit, dashboards. | No force-role change outside TTT; reports are tables, no charts. |
