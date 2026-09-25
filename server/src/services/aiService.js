@@ -75,65 +75,6 @@ const schemas = {
       sourcePage: String(value.sourcePage || "").slice(0, 100),
     };
   },
-  // ── Explanation-only features (§ Sanctioned AI slots) ────────────────────
-  // These produce readable text for human context; they never write records,
-  // change competency, decide assignment, or substitute for human review.
-  SKILL_GAP_EXPLANATION(value) {
-    if (!value?.explanation || typeof value.explanation !== "string")
-      throw new Error("explanation must be a string");
-    return {
-      explanation: String(value.explanation).slice(0, 800),
-      nextSteps: String(value.nextSteps || "").slice(0, 400),
-    };
-  },
-  COURSE_RECOMMENDATION_EXPLANATION(value) {
-    if (!value?.explanation || typeof value.explanation !== "string")
-      throw new Error("explanation must be a string");
-    return {
-      explanation: String(value.explanation).slice(0, 800),
-    };
-  },
-  TRAINER_MATCH_EXPLANATION(value) {
-    if (!value?.justification || typeof value.justification !== "string")
-      throw new Error("justification must be a string");
-    return {
-      justification: String(value.justification).slice(0, 400),
-    };
-  },
-  EVIDENCE_SUMMARIZATION(value) {
-    if (!value?.summary || typeof value.summary !== "string")
-      throw new Error("summary must be a string");
-    return {
-      summary: String(value.summary).slice(0, 800),
-      keyPoints: Array.isArray(value.keyPoints)
-        ? value.keyPoints.slice(0, 5).map((x) => String(x).slice(0, 200))
-        : [],
-    };
-  },
-  FEEDBACK_SUMMARIZATION(value) {
-    if (!value?.themes || typeof value.themes !== "string")
-      throw new Error("themes must be a string");
-    return {
-      themes: String(value.themes).slice(0, 800),
-      sentimentLabel: ["POSITIVE", "MIXED", "NEGATIVE", "NEUTRAL"].includes(
-        value.sentimentLabel,
-      )
-        ? value.sentimentLabel
-        : "NEUTRAL",
-      itemCount: typeof value.itemCount === "number" ? value.itemCount : 0,
-    };
-  },
-  TTT_CANDIDATE_SUMMARIZATION(value) {
-    if (!value?.candidateBlurb || typeof value.candidateBlurb !== "string")
-      throw new Error("candidateBlurb must be a string");
-    return {
-      candidateBlurb: String(value.candidateBlurb).slice(0, 800),
-      teachingStrengths: Array.isArray(value.teachingStrengths)
-        ? value.teachingStrengths.slice(0, 5).map((x) => String(x).slice(0, 200))
-        : [],
-      readinessSummary: String(value.readinessSummary || "").slice(0, 400),
-    };
-  },
 };
 
 function mock(feature, input) {
@@ -164,54 +105,6 @@ function mock(feature, input) {
           confidence: input.catalogue.length ? "MEDIUM" : "NO_MATCH",
         },
       ],
-    };
-  if (feature === "SKILL_GAP_EXPLANATION")
-    return {
-      explanation:
-        `Your role requires ${input.competencyName || "this competency"} at level ${input.requiredLevel}. ` +
-        `Your current demonstrated level is ${input.demonstratedLevel ?? "not yet assessed"}. ` +
-        "Completing recommended learning and submitting task evidence for reviewed human evaluation is the next step.",
-      nextSteps: "Enroll in matching courses and submit practical task evidence.",
-    };
-  if (feature === "COURSE_RECOMMENDATION_EXPLANATION")
-    return {
-      explanation:
-        `${input.courseTitle || "This course"} addresses the ${input.competencyName || "competency"} requirement (target level ${input.requiredLevel}). ` +
-        "It provides targeted curriculum mapping to the official framework rubric.",
-    };
-  if (feature === "TRAINER_MATCH_EXPLANATION")
-    return {
-      justification:
-        `${input.trainerName || "Selected trainer"} scored ${input.totalPoints ?? "high"} suitability points with verified level ${input.reviewedLevel ?? "matched"} expertise and confirmed availability. Final assignment is decided by the coordinator.`,
-    };
-  if (feature === "EVIDENCE_SUMMARIZATION")
-    return {
-      summary:
-        `Submitted evidence (${input.evidenceType || "PRACTICAL_TASK"}) demonstrates practical work corresponding to ${input.competencies || "claimed competencies"}. Human review remains required before any competency determination.`,
-      keyPoints: [
-        "Structured task evidence submitted by candidate",
-        "Demonstrates practical application within scope",
-        "Requires authorized human verification",
-      ],
-    };
-  if (feature === "FEEDBACK_SUMMARIZATION")
-    return {
-      themes:
-        `Feedback across ${input.itemCount || 0} entries highlights practical exercise clarity, operational relevance, and engagement with simulated data.`,
-      sentimentLabel: "POSITIVE",
-      itemCount: input.itemCount || 0,
-    };
-  if (feature === "TTT_CANDIDATE_SUMMARIZATION")
-    return {
-      candidateBlurb:
-        `${input.candidateName || "Candidate"} has completed teaching practice in ${input.programName || "the program"} for ${input.competencyName || "competency"} (target level ${input.targetLevel || 3}), supported by reviewed practice evidence.`,
-      teachingStrengths: [
-        "Clear instructional delivery",
-        "Strong operational domain grounding",
-        "Engaging practice session feedback",
-      ],
-      readinessSummary:
-        "Candidate has met program prerequisites; ready for coordinator verification to join the verified trainer pool.",
     };
   return {
     question: "Which statement is supported by the supplied approved passage?",

@@ -41,25 +41,6 @@ export default function TttPage() {
   const [practiceForm, setPracticeForm] = useState({});
   const [evalForm, setEvalForm] = useState({});
   const [reasons, setReasons] = useState({});
-  const [tttSummaries, setTttSummaries] = useState({});
-  const [loadingTttSummary, setLoadingTttSummary] = useState({});
-
-  const fetchTttSummary = async (nominationId) => {
-    setLoadingTttSummary((prev) => ({ ...prev, [nominationId]: true }));
-    try {
-      const res = await part3.post("/ai/summarize-ttt-candidate", {
-        nominationId,
-      });
-      setTttSummaries((prev) => ({ ...prev, [nominationId]: res }));
-    } catch (err) {
-      setTttSummaries((prev) => ({
-        ...prev,
-        [nominationId]: { candidateBlurb: errorMessage(err) },
-      }));
-    } finally {
-      setLoadingTttSummary((prev) => ({ ...prev, [nominationId]: false }));
-    }
-  };
 
   const load = useCallback(async () => {
     setError("");
@@ -419,67 +400,6 @@ export default function TttPage() {
                         </p>
                       ))}
                     </details>
-                  )}
-
-                  {(isAdmin || isTrainer) && (
-                    <div style={{ margin: "0.75rem 0" }}>
-                      {tttSummaries[nomination._id] ? (
-                        <div
-                          style={{
-                            padding: "0.75rem",
-                            background: "#f8fafc",
-                            border: "1px solid #cbd5e1",
-                            borderRadius: "6px",
-                            fontSize: "0.85rem",
-                          }}
-                        >
-                          <strong style={{ color: "#0f172a" }}>
-                            AI Candidate Readiness Summary:
-                          </strong>
-                          <p style={{ margin: "0.25rem 0", color: "#334155" }}>
-                            {tttSummaries[nomination._id].candidateBlurb}
-                          </p>
-                          {tttSummaries[nomination._id].teachingStrengths?.length >
-                            0 && (
-                            <ul
-                              style={{
-                                margin: "0.25rem 0 0.25rem 1.25rem",
-                                color: "#475569",
-                              }}
-                            >
-                              {tttSummaries[
-                                nomination._id
-                              ].teachingStrengths.map((s, i) => (
-                                <li key={i}>{s}</li>
-                              ))}
-                            </ul>
-                          )}
-                          {tttSummaries[nomination._id].readinessSummary && (
-                            <p
-                              style={{
-                                margin: "0.25rem 0 0 0",
-                                color: "#166534",
-                                fontWeight: 500,
-                              }}
-                            >
-                              {tttSummaries[nomination._id].readinessSummary}
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          className="button button-ghost"
-                          style={{ fontSize: "0.8rem", padding: "4px 10px" }}
-                          disabled={loadingTttSummary[nomination._id]}
-                          onClick={() => fetchTttSummary(nomination._id)}
-                        >
-                          {loadingTttSummary[nomination._id]
-                            ? "Summarizing..."
-                            : "✨ AI Candidate Summary"}
-                        </button>
-                      )}
-                    </div>
                   )}
 
                   {!isAdmin && !isTrainer && (
