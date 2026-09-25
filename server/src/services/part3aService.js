@@ -1503,3 +1503,70 @@ export async function recoverExpiredAttempts() {
   }
   return attempts.length;
 }
+
+// Trainee-facing trainer matching: "here is your trainer, and here is why".
+// Reveals only the selected trainer for the trainee's own sessions.
+export async function trainerMatchFor(trainee, filters = {}) {
+  const enrollments = await P2.P2Enrollment.find({
+    trainee: trainee._id,
+    status: "CONFIRMED",
+  })
+    .populate("batch")
+    .lean();
+  const matches = [];
+  for (const enrollment of enrollments) {
+    const batch = enrollment.batch;
+    if (!batch?.sessions?.length) continue;
+    const sessions = [];
+    for (const sessionRow of batch.sessions) {
+      const assignment = await P3.P3TrainerAssignment.findOne({
+        batch: batch._id,
+        sessionId: sessionRow._id,
+        status: "ACTIVE",
+      })
+        .populate("trainer", "name")
+        .lean();
+      let ranking = [];
+      try {
+        ranking = await calculateSuitability(batch._id, sessionRow._id);
+      } catch {
+        ranking = [];
+      }
+      const assignedId = assignment ? id(assignment.trainer) : null;
+      const selected =
+        ranking.find((row) => id(row.trainer._id) === assignedId) ||
+        ranking.find((row) => row.status === "ELIGIBLE") ||
+        null;
+      const reasons = [];
+      for (const f of selected?.factors || [])
+        if (f.contribution > 0)
+          reasons.push(`${f.description} (+${f.contribution} points)`);
+      for (const c of selected?.checks || [])
+        if (c.outcome === "PASS") reasons.push(c.explanation);
+      sessions.push({
+        sessionId: sessionRow._id,
+        title: sessionRow.title,
+        start: sessionRow.start,
+        end: sessionRow.end,
+        status: assignment
+          ? "ASSIGNED"
+          : selected
+            ? "RECOMMENDED"
+            : "NONE_AVAILABLE",
+        trainer: selected
+          ? { _id: selected.trainer._id, name: selected.trainer.name }
+          : null,
+        reasons: [...new Set(reasons)],
+      });
+    }
+    if (sessions.length)
+      matches.push({
+        batch: { _id: batch._id, name: batch.name, course: batch.course },
+        sessions,
+      });
+  }
+  return {
+    matches,
+    note: "Matches show why a trainer fits your sessions. A coordinator makes and records the final assignment.",
+  };
+}

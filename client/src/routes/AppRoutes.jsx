@@ -3,6 +3,11 @@ import ContinuityPage from "../pages/continuity/ContinuityPage";
 import CapacityPage from "../pages/capacity/CapacityPage";
 import CertificatesPage from "../pages/certificates/CertificatesPage";
 import FeedbackPage from "../pages/feedback/FeedbackPage";
+import AnnouncementsPage from "../pages/announcements/AnnouncementsPage";
+import AchievementsPage from "../pages/achievements/AchievementsPage";
+import TrainerMatchPage from "../pages/trainer/TrainerMatchPage";
+import TrainingDemandPage from "../pages/demand/TrainingDemandPage";
+import TttPage from "../pages/ttt/TttPage";
 import PublicLayout from "../layouts/PublicLayout";
 import TraineeLayout from "../layouts/TraineeLayout";
 import TrainerLayout from "../layouts/TrainerLayout";
@@ -92,6 +97,17 @@ export default function AppRoutes() {
                           <CertificatesPage />
                         ) : path === "feedback" ? (
                           <FeedbackPage />
+                        ) : path === "announcements" ? (
+                          <AnnouncementsPage />
+                        ) : path === "achievements" ? (
+                          <AchievementsPage />
+                        ) : path === "trainer-match" ? (
+                          <TrainerMatchPage />
+                        ) : path === "training-demand" ? (
+                          <TrainingDemandPage />
+                        ) : path === "train-the-trainer" ||
+                          path === "ttt-candidates" ? (
+                          <TttPage />
                         ) : role === "admin" && path === "users" ? (
                           <UsersPage />
                         ) : part3bPaths.has(path) ? (

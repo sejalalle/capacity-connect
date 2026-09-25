@@ -20,6 +20,8 @@ import {
   History,
   BrainCircuit,
   Activity,
+  Award,
+  Megaphone,
 } from "lucide-react";
 
 export const navigationGroups = {
@@ -35,6 +37,7 @@ export const navigationGroups = {
         ["Skill Gaps", "skill-gaps", ChartNoAxesColumnIncreasing],
         ["Competency History", "competency-history", History],
         ["Skill Suggestions", "skill-suggestions", BrainCircuit],
+        ["Achievements", "achievements", Award],
       ],
     },
     {
@@ -46,6 +49,8 @@ export const navigationGroups = {
         ["My Nominations", "nominations", ShieldCheck],
         ["Training Calendar", "calendar", CalendarDays],
         ["My Learning", "learning", BookOpenCheck],
+        ["Train the Trainer", "train-the-trainer", UserCheck],
+        ["Trainer Match", "trainer-match", UserCheck],
       ],
     },
     {
@@ -63,6 +68,7 @@ export const navigationGroups = {
         ["Knowledge Continuity", "continuity", BookOpenCheck],
         ["Completion Certificates", "certificates", FileCheck2],
         ["Training Feedback", "feedback", ClipboardCheck],
+        ["Announcements", "announcements", Megaphone],
         ["Notifications", "notifications", Bell],
         ["Profile", "profile", UserRound],
       ],
@@ -92,6 +98,7 @@ export const navigationGroups = {
         ["Published Results", "results", ShieldCheck],
         ["Evidence Review", "evidence-review", FileCheck2],
         ["Competency Decisions", "competency-decisions", Fingerprint],
+        ["TTT Candidates", "ttt-candidates", UserCheck],
       ],
     },
     {
@@ -104,6 +111,7 @@ export const navigationGroups = {
         ["Knowledge Continuity", "continuity", BookOpenCheck],
         ["Completion Certificates", "certificates", FileCheck2],
         ["Training Feedback", "feedback", ClipboardCheck],
+        ["Announcements", "announcements", Megaphone],
         ["Notifications", "notifications", Bell],
       ],
     },
@@ -120,6 +128,7 @@ export const navigationGroups = {
         ["Competency Framework", "competencies", Fingerprint],
         ["Job Role Requirements", "job-role-requirements", Building2],
         ["Organizational Capability", "organizational-capability", Building2],
+        ["Train the Trainer", "train-the-trainer", UserCheck],
       ],
     },
     {
@@ -149,11 +158,13 @@ export const navigationGroups = {
       items: [
         ["Follow-up Oversight", "follow-up-oversight", Route],
         ["Trainer Capacity", "trainer-capacity", Clock3],
+        ["Training Demand", "training-demand", ChartNoAxesColumnIncreasing],
         ["AI Activity", "ai-activity", Activity],
         ["Audit Logs", "audit-logs", ScrollText],
         ["Knowledge Continuity", "continuity", BookOpenCheck],
         ["Completion Certificates", "certificates", FileCheck2],
         ["Training Feedback", "feedback", ClipboardCheck],
+        ["Announcements", "announcements", Megaphone],
         ["Notifications", "notifications", Bell],
         ["Profile", "profile", UserRound],
       ],

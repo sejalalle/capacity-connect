@@ -1,5 +1,6 @@
+import crypto from "node:crypto";
 import mongoose from "mongoose";
-import { AuditLog } from "../models/Lifecycle.js";
+import { P2AuditLog } from "../models/Part2.js";
 import User from "../models/User.js";
 import { HttpError } from "../middleware/errorHandler.js";
 export async function list(req, res) {
@@ -66,16 +67,17 @@ export async function status(req, res) {
         "This account status transition is not allowed. Administrator accounts are protected.",
       );
     }
-    await AuditLog.create(
+    await P2AuditLog.create(
       [
         {
           actor: req.user._id,
           action: "ACCOUNT_STATUS_CHANGED",
           entityType: "User",
           entityId: changed._id,
-          from: source,
-          to: target,
+          previousStatus: source,
+          newStatus: target,
           reason: `Administrator changed account access from ${source} to ${target}`,
+          correlationId: crypto.randomUUID(),
         },
       ],
       { session },

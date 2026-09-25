@@ -47,6 +47,12 @@ const tones = {
   // Neutral / Info / Progress
   "in-progress": "blue",
   scheduled: "blue",
+  nominated: "blue",
+  "teaching-practice": "blue",
+  assigned: "teal",
+  recommended: "blue",
+  "none-available": "neutral",
+  withdrawn: "neutral",
   "not-assessed": "neutral",
   "not-comparable": "neutral",
   "self-declared": "neutral",

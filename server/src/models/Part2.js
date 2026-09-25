@@ -484,6 +484,42 @@ export const P2Notification = make(
   ],
 );
 
+export const P2Announcement = make(
+  "P2Announcement",
+  {
+    title: { type: String, required: true },
+    body: { type: String, required: true },
+    category: {
+      type: String,
+      enum: ["NOTIFICATION", "ANNOUNCEMENT", "ACHIEVEMENT", "NEW_CONTENT"],
+      default: "ANNOUNCEMENT",
+    },
+    audience: {
+      type: String,
+      enum: ["ALL", "TRAINEE", "TRAINER", "ADMIN"],
+      default: "ALL",
+    },
+    status: {
+      type: String,
+      enum: ["DRAFT", "PUBLISHED", "ARCHIVED"],
+      default: "DRAFT",
+    },
+    pinned: { type: Boolean, default: false },
+    showOnHomepage: { type: Boolean, default: true },
+    publishAt: Date,
+    expiresAt: Date,
+    attachment: oid("P3PrivateResource", false),
+    summary: String,
+    createdBy: oid("User"),
+    history: [{ action: String, actor: oid("User"), at: Date, reason: String }],
+    ...synthetic,
+  },
+  [
+    [{ status: 1, showOnHomepage: 1, publishAt: -1 }],
+    [{ audience: 1, status: 1, publishAt: -1 }],
+  ],
+);
+
 export const P2AuditLog = make(
   "P2AuditLog",
   {

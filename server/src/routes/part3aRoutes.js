@@ -36,6 +36,7 @@ import {
   submitAttempt,
   submitExpertise,
   submitPractical,
+  trainerMatchFor,
 } from "../services/part3aService.js";
 
 const router = Router();
@@ -322,6 +323,9 @@ router.get(
         objectId.parse(req.params.sessionId),
       ),
     ),
+);
+router.get("/trainer-match", roles(["trainee"]), async (req, res) =>
+  ok(res, await trainerMatchFor(req.user, req.query)),
 );
 router.get("/trainer-assignments", trainerOrAdmin, async (req, res) => {
   const query = req.user.role === "trainer" ? { trainer: req.user._id } : {};

@@ -801,6 +801,217 @@ export async function seedPart3(admin, part2) {
       createdBy: trainers[1]._id,
     },
   );
+
+  const tttProgram = await upsert(
+    P3.P3TTTProgram,
+    { title: "Train-the-Trainer: Weather Radar Interpretation" },
+    {
+      title: "Train-the-Trainer: Weather Radar Interpretation",
+      competency: part2.competencies[0]._id,
+      frameworkVersion: 1,
+      targetLevel: 2,
+      courses: [part2.courses[0]._id],
+      teachingPracticeRequirements:
+        "Deliver one observed radar-interpretation session and a short teaching practice.",
+      defaultEvaluator: trainers[0]._id,
+      status: "ACTIVE",
+      createdBy: admin._id,
+    },
+  );
+
+  const tttCandidate = part2.trainees[1];
+  await upsert(
+    P2.P2CompetencyRecord,
+    {
+      trainee: tttCandidate._id,
+      competency: part2.competencies[0]._id,
+      frameworkVersion: 1,
+    },
+    {
+      trainee: tttCandidate._id,
+      competency: part2.competencies[0]._id,
+      frameworkVersion: 1,
+      demonstratedLevel: 2,
+      status: "DEMONSTRATED",
+      sourceType: "PART3_REVIEW",
+      reviewer: trainers[1]._id,
+      assessedAt: days(-20),
+      reviewDueAt: days(345),
+    },
+  );
+
+  const tttNominated = await upsert(
+    P3.P3TTTNomination,
+    { candidate: part2.asha._id, program: tttProgram._id },
+    {
+      candidate: part2.asha._id,
+      program: tttProgram._id,
+      competency: part2.competencies[0]._id,
+      frameworkVersion: 1,
+      targetLevel: 2,
+      nominatedBy: admin._id,
+      rationale:
+        "Synthetic demonstration nomination: reviewed radar competence at the target level.",
+      status: "NOMINATED",
+      revision: 0,
+      requestId: "d3b1f1a2-0000-4000-8000-000000000001",
+      history: [
+        {
+          status: "NOMINATED",
+          actor: admin._id,
+          at: days(-6),
+          reason: "Synthetic demonstration nomination.",
+        },
+      ],
+    },
+  );
+
+  const tttReady = await upsert(
+    P3.P3TTTNomination,
+    { candidate: tttCandidate._id, program: tttProgram._id },
+    {
+      candidate: tttCandidate._id,
+      program: tttProgram._id,
+      competency: part2.competencies[0]._id,
+      frameworkVersion: 1,
+      targetLevel: 2,
+      nominatedBy: admin._id,
+      rationale:
+        "Synthetic demonstration: subject expert proposed for teaching development.",
+      status: "EVALUATED",
+      revision: 2,
+      requestId: "d3b1f1a2-0000-4000-8000-000000000002",
+      history: [
+        {
+          status: "NOMINATED",
+          actor: admin._id,
+          at: days(-12),
+          reason: "Synthetic demonstration nomination.",
+        },
+        {
+          status: "ACCEPTED",
+          actor: tttCandidate._id,
+          at: days(-11),
+          reason: "Candidate accepted the nomination.",
+        },
+        {
+          status: "TEACHING_PRACTICE",
+          actor: tttCandidate._id,
+          at: days(-8),
+          reason: "Teaching practice submitted.",
+        },
+        {
+          status: "EVALUATED",
+          actor: trainers[0]._id,
+          at: days(-5),
+          reason: "Teaching practice evaluated: DEMONSTRATED.",
+        },
+      ],
+    },
+  );
+
+  const tttPractice = await upsert(
+    P3.P3TTTPractice,
+    { nomination: tttReady._id, version: 1 },
+    {
+      nomination: tttReady._id,
+      candidate: tttCandidate._id,
+      program: tttProgram._id,
+      sessionTitle: "Synthetic radar interpretation teaching session",
+      scheduledAt: days(-8),
+      observers: [trainers[0]._id],
+      responseText:
+        "Synthetic teaching practice: explained radar pattern interpretation and checked trainee understanding.",
+      rubric: [
+        { criterionId: "SUBJECT_ACCURACY", label: "Subject accuracy", maxMarks: 30 },
+        { criterionId: "STRUCTURE", label: "Structure and clarity", maxMarks: 30 },
+        { criterionId: "ENGAGEMENT", label: "Trainee engagement", maxMarks: 20 },
+        { criterionId: "ASSESSMENT", label: "Assessment of learning", maxMarks: 20 },
+      ],
+      version: 1,
+      status: "EVALUATED",
+      submittedAt: days(-8),
+    },
+  );
+
+  await upsert(
+    P3.P3TTTEvaluation,
+    { practice: tttPractice._id },
+    {
+      practice: tttPractice._id,
+      nomination: tttReady._id,
+      evaluator: trainers[0]._id,
+      criterionMarks: [
+        { criterionId: "SUBJECT_ACCURACY", marks: 26, comment: "Accurate content." },
+        { criterionId: "STRUCTURE", marks: 24, comment: "Clear structure." },
+        { criterionId: "ENGAGEMENT", marks: 17, comment: "Good interaction." },
+        { criterionId: "ASSESSMENT", marks: 16, comment: "Checked understanding." },
+      ],
+      score: 83,
+      outcome: "DEMONSTRATED",
+      comments:
+        "Synthetic teaching-practice evaluation; awaiting coordinator verification.",
+      evaluatedAt: days(-5),
+    },
+  );
+
+  const announcements = [
+    {
+      title: "New radar interpretation course published",
+      body: "A new radar interpretation course is now available in the catalogue. Enrol from the Courses workspace.",
+      category: "NEW_CONTENT",
+      audience: "ALL",
+      pinned: true,
+    },
+    {
+      title: "Quarterly competency review window opens",
+      body: "Coordinators will review recorded evidence this quarter. Ensure your evidence portfolio is up to date.",
+      category: "ANNOUNCEMENT",
+      audience: "TRAINEE",
+      pinned: false,
+    },
+    {
+      title: "Trainer capacity planning reminder",
+      body: "Review trainer capacity and training demand before the next batch cycle.",
+      category: "NOTIFICATION",
+      audience: "TRAINER",
+      pinned: false,
+    },
+  ];
+  for (const item of announcements)
+    await upsert(
+      P2.P2Announcement,
+      { title: item.title },
+      {
+        ...item,
+        status: "PUBLISHED",
+        showOnHomepage: true,
+        publishAt: days(-3),
+        createdBy: admin._id,
+        history: [
+          {
+            action: "PUBLISHED",
+            actor: admin._id,
+            at: days(-3),
+            reason: "Synthetic demonstration announcement.",
+          },
+        ],
+      },
+    );
+  await upsert(
+    P2.P2Announcement,
+    { title: "Draft: upcoming monsoon preparedness workshop" },
+    {
+      title: "Draft: upcoming monsoon preparedness workshop",
+      body: "Draft announcement pending coordinator publication.",
+      category: "ANNOUNCEMENT",
+      audience: "ALL",
+      status: "DRAFT",
+      showOnHomepage: true,
+      createdBy: admin._id,
+    },
+  );
+
   return {
     batch,
     session,
@@ -820,5 +1031,8 @@ export async function seedPart3(admin, part2) {
     demonstratedDecision,
     practiceEvidence,
     practiceDecision,
+    tttProgram,
+    tttNominated,
+    tttReady,
   };
 }

@@ -1138,3 +1138,98 @@ export async function deterministicCompetencyMatch(text) {
       uncertainty: x.score > 2 ? "MEDIUM" : "HIGH",
     }));
 }
+
+// Achievements are learning milestones derived from stored records. They are
+// deliberately separate from completion certificates and never substitute for a
+// verified competency decision.
+export async function achievementsFor(user, filters = {}) {
+  const traineeId = user.role === "trainee" ? user._id : filters.trainee;
+  if (!traineeId) fail(400, "A trainee is required");
+
+  const [certificates, records, history, results, verifications] =
+    await Promise.all([
+      P3.P3CompletionCertificate.find({
+        trainee: traineeId,
+        status: "ISSUED",
+      }).lean(),
+      P2.P2CompetencyRecord.find({
+        trainee: traineeId,
+        status: "DEMONSTRATED",
+      })
+        .populate("competency", "name code")
+        .lean(),
+      P3.P3CompetencyHistory.find({
+        trainee: traineeId,
+        newLevel: { $ne: null },
+      })
+        .populate("competency", "name code")
+        .lean(),
+      P3.P3ResultVersion.find({
+        trainee: traineeId,
+        status: "PUBLISHED",
+        outcome: "PASS",
+      }).lean(),
+      P3.P3TTTVerification.find({
+        candidate: traineeId,
+        outcome: "VERIFIED",
+      })
+        .populate("competency", "name code")
+        .lean(),
+    ]);
+
+  const items = [
+    ...certificates.map((c) => ({
+      key: `certificate:${c._id}`,
+      title: "Certificate earned",
+      description: `${c.courseTitle || "Course"} completion certificate issued`,
+      achievedAt: c.completedAt || c.createdAt,
+      tone: "teal",
+      sourceType: "P3CompletionCertificate",
+      sourceId: c._id,
+    })),
+    ...records.map((r) => ({
+      key: `competency:${r._id}`,
+      title: "Competency demonstrated",
+      description: `${r.competency?.name || "Competency"} demonstrated at L${r.demonstratedLevel}`,
+      achievedAt: r.assessedAt || r.updatedAt,
+      tone: "teal",
+      sourceType: "P2CompetencyRecord",
+      sourceId: r._id,
+    })),
+    ...history.map((h) => ({
+      key: `levelup:${h._id}`,
+      title: "New level achieved",
+      description: `${h.competency?.name || "Competency"} moved to L${h.newLevel}`,
+      achievedAt: h.recordedAt,
+      tone: "blue",
+      sourceType: "P3CompetencyHistory",
+      sourceId: h._id,
+    })),
+    ...results.map((r) => ({
+      key: `result:${r._id}`,
+      title: "Assessment passed",
+      description: `Published assessment result: PASS${r.percentage != null ? ` (${r.percentage}%)` : ""}`,
+      achievedAt: r.publishedAt,
+      tone: "blue",
+      sourceType: "P3ResultVersion",
+      sourceId: r._id,
+    })),
+    ...verifications.map((v) => ({
+      key: `ttt:${v._id}`,
+      title: "Verified as trainer",
+      description: `Verified to deliver ${v.competency?.name || "competency"} at L${v.targetLevel}`,
+      achievedAt: v.verifiedAt,
+      tone: "teal",
+      sourceType: "P3TTTVerification",
+      sourceId: v._id,
+    })),
+  ];
+
+  return {
+    items: items
+      .filter((x) => x.achievedAt)
+      .sort((a, b) => new Date(b.achievedAt) - new Date(a.achievedAt)),
+    label:
+      "Learning milestones derived from stored records. Separate from completion certificates and from verified competency.",
+  };
+}

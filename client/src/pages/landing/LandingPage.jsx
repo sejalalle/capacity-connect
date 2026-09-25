@@ -1,16 +1,33 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, BookOpen, BarChart3, Users, GraduationCap, Presentation, Settings } from "lucide-react";
+import api from "../../services/api";
 import Brand from "../../components/ui/Brand";
 import VerticalDecorativeTag from "../../components/ui/VerticalDecorativeTag";
 
 export default function LandingPage() {
   const [selectedRole, setSelectedRole] = useState("trainee");
+  const [announcements, setAnnouncements] = useState([]);
   const navigate = useNavigate();
 
   const handleContinue = () => {
     navigate(`/register?role=${selectedRole}`);
   };
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get("/announcements/public")
+      .then((response) => {
+        if (active) setAnnouncements(response.data.data || []);
+      })
+      .catch(() => {
+        if (active) setAnnouncements([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#F5F8FC] flex flex-col lg:flex-row">
@@ -217,6 +234,39 @@ export default function LandingPage() {
               Sign In
             </Link>
           </p>
+
+          {announcements.length > 0 && (
+            <div className="mt-10 pt-6 border-t border-[#D9E3F0]">
+              <h3 className="text-[11px] font-bold text-[#475875] uppercase tracking-wider mb-4">
+                Latest updates
+              </h3>
+              <div className="space-y-3">
+                {announcements.map((item) => (
+                  <div
+                    key={item._id}
+                    className="rounded-xl border border-[#D9E3F0] bg-[#F5F8FC] p-4"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      {item.pinned && (
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-[#155CC4]">
+                          Pinned
+                        </span>
+                      )}
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-[#687181]">
+                        {item.category?.replaceAll("_", " ")}
+                      </span>
+                    </div>
+                    <p className="text-sm font-semibold text-[#101B46] m-0 mb-1">
+                      {item.title}
+                    </p>
+                    <p className="text-xs text-[#475875] m-0 leading-relaxed">
+                      {item.summary || item.body}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div />

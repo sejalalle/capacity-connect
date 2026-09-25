@@ -4,7 +4,15 @@ import auth from "../middleware/authMiddleware.js";
 import roles from "../middleware/roleMiddleware.js";
 import validate from "../middleware/validate.js";
 import { capacityFor } from "../services/capacityService.js";
+import { demandReport } from "../services/demandService.js";
 const router = Router();
+
+router.get("/training-demand", auth, roles(["admin"]), async (req, res) => {
+  res.json({
+    success: true,
+    data: await demandReport(req.user, req.query),
+  });
+});
 
 router.post(
   "/capacity",

@@ -12,7 +12,9 @@ module.exports = defineConfig({
     headless: true,
     actionTimeout: 10000,
     launchOptions: {
-      executablePath: process.env.CHROME_PATH || "/usr/bin/google-chrome",
+      ...(process.env.CHROME_PATH
+        ? { executablePath: process.env.CHROME_PATH }
+        : {}),
       args: ["--no-sandbox"],
     },
     screenshot: "only-on-failure",
@@ -20,13 +22,15 @@ module.exports = defineConfig({
   },
   webServer: [
     {
-      command: `E2E_PORT=${apiPort} CLIENT_ORIGIN=${webOrigin} node server/test/e2e-server.js`,
+      command: "node server/test/e2e-server.js",
+      env: { E2E_PORT: String(apiPort), CLIENT_ORIGIN: webOrigin },
       url: `${apiOrigin}/api/auth/me`,
       timeout: 120000,
       reuseExistingServer: false,
     },
     {
-      command: `VITE_PROXY_TARGET=${apiOrigin} npm run dev --prefix client -- --host 127.0.0.1 --port ${webPort}`,
+      command: `npm run dev --prefix client -- --host 127.0.0.1 --port ${webPort}`,
+      env: { VITE_PROXY_TARGET: apiOrigin },
       url: webOrigin,
       timeout: 30000,
       reuseExistingServer: false,

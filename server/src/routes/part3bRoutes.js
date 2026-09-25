@@ -9,6 +9,7 @@ import * as P2 from "../models/Part2.js";
 import * as P3 from "../models/Part3.js";
 import { HttpError } from "../middleware/errorHandler.js";
 import {
+  achievementsFor,
   aiAssist,
   assignReviewer,
   capabilityReport,
@@ -190,6 +191,9 @@ router.post(
 );
 router.get("/competency-passport", all, async (req, res) =>
   ok(res, await passportFor(req.user, req.query.trainee)),
+);
+router.get("/achievements", all, async (req, res) =>
+  ok(res, await achievementsFor(req.user, req.query)),
 );
 router.get("/follow-ups", all, async (req, res) => {
   const query =

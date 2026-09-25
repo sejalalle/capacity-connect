@@ -957,3 +957,149 @@ export const P3ResultVersion = make(
     [{ trainee: 1, status: 1 }],
   ],
 );
+
+// Train-the-Trainer (TTT): develops strong subject experts into verified trainers.
+// A candidate stays a trainee/employee until admin verification.
+export const P3TTTProgram = make(
+  "P3TTTProgram",
+  {
+    title: { type: String, required: true },
+    competency: oid("P2Competency"),
+    frameworkVersion: Number,
+    targetLevel: { type: Number, min: 1, max: 5, required: true },
+    courses: [oid("P2Course", false)],
+    teachingPracticeRequirements: String,
+    defaultEvaluator: oid("User", false),
+    status: {
+      type: String,
+      enum: ["DRAFT", "ACTIVE", "ARCHIVED"],
+      default: "DRAFT",
+    },
+    createdBy: oid("User"),
+    ...synthetic,
+  },
+  [[{ competency: 1, frameworkVersion: 1, status: 1 }]],
+);
+
+export const P3TTTNomination = make(
+  "P3TTTNomination",
+  {
+    candidate: oid("User"),
+    program: oid("P3TTTProgram"),
+    competency: oid("P2Competency"),
+    frameworkVersion: Number,
+    targetLevel: { type: Number, min: 1, max: 5, required: true },
+    nominatedBy: oid("User"),
+    rationale: { type: String, required: true },
+    eligibilitySnapshot: Schema.Types.Mixed,
+    status: {
+      type: String,
+      enum: [
+        "NOMINATED",
+        "ACCEPTED",
+        "IN_PROGRESS",
+        "TEACHING_PRACTICE",
+        "EVALUATED",
+        "VERIFIED",
+        "RETURNED",
+        "WITHDRAWN",
+        "REJECTED",
+      ],
+      default: "NOMINATED",
+    },
+    revision: { type: Number, default: 0 },
+    requestId: { type: String, required: true, unique: true },
+    history: [
+      {
+        status: String,
+        actor: oid("User"),
+        at: Date,
+        reason: String,
+      },
+    ],
+    ...synthetic,
+  },
+  [
+    [{ candidate: 1, program: 1, status: 1 }],
+    [{ candidate: 1, competency: 1, frameworkVersion: 1, status: 1 }],
+  ],
+);
+
+export const P3TTTPractice = make(
+  "P3TTTPractice",
+  {
+    nomination: oid("P3TTTNomination"),
+    candidate: oid("User"),
+    program: oid("P3TTTProgram"),
+    sessionTitle: String,
+    scheduledAt: Date,
+    observers: [oid("User", false)],
+    responseText: String,
+    privateResources: [oid("P3PrivateResource", false)],
+    rubric: [
+      {
+        criterionId: String,
+        label: String,
+        description: String,
+        maxMarks: Number,
+      },
+    ],
+    version: { type: Number, min: 1, default: 1 },
+    status: {
+      type: String,
+      enum: [
+        "SCHEDULED",
+        "SUBMITTED",
+        "UNDER_EVALUATION",
+        "EVALUATED",
+        "RETURNED_FOR_REVISION",
+      ],
+      default: "SCHEDULED",
+    },
+    submittedAt: Date,
+    ...synthetic,
+  },
+  [[{ nomination: 1, version: 1 }, { unique: true }]],
+);
+
+export const P3TTTEvaluation = make(
+  "P3TTTEvaluation",
+  {
+    practice: oid("P3TTTPractice"),
+    nomination: oid("P3TTTNomination", false),
+    evaluator: oid("User"),
+    criterionMarks: [{ criterionId: String, marks: Number, comment: String }],
+    score: Number,
+    outcome: {
+      type: String,
+      enum: ["DEMONSTRATED", "NEEDS_PRACTICE"],
+      required: true,
+    },
+    comments: String,
+    evaluatedAt: Date,
+    ...synthetic,
+  },
+  [[{ practice: 1 }, { unique: true }]],
+);
+
+export const P3TTTVerification = make(
+  "P3TTTVerification",
+  {
+    nomination: oid("P3TTTNomination"),
+    candidate: oid("User"),
+    competency: oid("P2Competency"),
+    frameworkVersion: Number,
+    targetLevel: { type: Number, min: 1, max: 5, required: true },
+    verifiedBy: oid("User"),
+    outcome: {
+      type: String,
+      enum: ["VERIFIED", "RETURNED"],
+      required: true,
+    },
+    reason: { type: String, required: true },
+    verifiedAt: Date,
+    expertiseCreated: oid("P3TrainerExpertise", false),
+    ...synthetic,
+  },
+  [[{ nomination: 1, outcome: 1 }], [{ candidate: 1, competency: 1 }]],
+);

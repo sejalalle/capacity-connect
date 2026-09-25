@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(node --test test/ttt.test.js)",
+      "Shell(npm:*)",
+      "Shell(if:*)",
+      "Shell(else:*)",
+      "Shell(npx playwright install chromium)",
+      "Shell(git:*)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}
