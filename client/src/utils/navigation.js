@@ -164,31 +164,75 @@ export const navigationGroups = {
       group: "PEOPLE",
       items: [
         ["User Approvals", "users", ShieldCheck],
-        ["User & Roles", "users", Users],
+        ["Users & Roles", "user-roles", Users],
       ],
     },
     {
-      group: "COMPETENCY",
+      group: "CAPABILITY",
       items: [
-        ["Competency Framework", "competencies", Fingerprint], ["Role Mapping", "job-role-requirements", Building2], ["Capability Map", "organizational-capability", Building2], ["Skill Gap Insights", "training-demand", ChartNoAxesColumnIncreasing],
+        ["Competency Framework", "competencies", Fingerprint],
+        ["Role Mapping", "job-role-requirements", Building2],
+        ["Capability Map", "organizational-capability", Building2],
+        ["Skill Gap Analysis", "skill-gap-analysis", ChartNoAxesColumnIncreasing],
       ],
     },
     {
       group: "TRAINING",
       items: [
-        ["Courses", "courses", Library], ["Assessments", "assessments", ClipboardCheck], ["Certifications", "certificates", FileCheck2], ["Training Demand", "training-demand", Route], ["Training Planning", "batches", CalendarDays], ["Active Training", "calendar", Activity], ["Training Outcomes", "results", Award],
+        ["Training Demand", "training-demand", Route],
+        ["Courses", "courses", Library],
+        ["Assessments", "assessments", ClipboardCheck],
+        ["Certifications", "certificates", FileCheck2],
       ],
     },
     {
       group: "TRAINERS",
       items: [
-        ["Trainer Pool", "trainer-discovery", Users], ["Capacity Analysis", "trainer-capacity", Clock3], ["Train-the-Trainer", "train-the-trainer", UserCheck],
+        ["Trainer Pool", "trainer-discovery", Users],
+        ["Capacity Analysis", "trainer-capacity", Clock3],
+        ["Verification", "trainer-verification", ShieldCheck],
       ],
     },
-    { group: "COMMUNICATION", items: [["Announcements", "announcements", Megaphone]] },
-    { group: "REPORTS & ANALYTICS", items: [["Reports & Analytics", "audit-logs", ScrollText]] },
-    { group: "FEEDBACK", items: [["Feedback Overview", "feedback", ClipboardCheck], ["Feedback Details", "feedback", Users], ["Feedback Trends", "feedback", Activity], ["Improvement Actions", "feedback", Route]] },
-    { group: "NOTIFICATIONS", items: [["Notifications", "notifications", Bell]] },
+    {
+      group: "TRAIN-THE-TRAINER",
+      items: [
+        ["TTT Overview", "train-the-trainer", UserCheck],
+        ["TTT Candidates", "ttt-candidates", Users],
+        ["TTT Programme", "ttt-programme", ScrollText],
+        ["Verification", "ttt-verification", Award],
+      ],
+    },
+    {
+      group: "KNOWLEDGE CONTINUITY",
+      items: [
+        ["Knowledge Base", "knowledge-base", BookOpenCheck],
+        ["Succession Planning", "succession-planning", Route],
+        ["Risk Assessment", "risk-assessment", ShieldCheck],
+      ],
+    },
+    {
+      group: "COMMUNICATION",
+      items: [
+        ["Announcements", "announcements", Megaphone],
+        ["Notifications", "notifications", Bell],
+      ],
+    },
+    {
+      group: "REPORTS & ANALYTICS",
+      items: [
+        ["Reports & Analytics", "audit-logs", ScrollText],
+        ["Training Reports", "training-reports", ChartNoAxesColumnIncreasing],
+        ["Competency Reports", "competency-reports", Activity],
+      ],
+    },
+    {
+      group: "FEEDBACK",
+      items: [
+        ["Feedback Overview", "feedback", ClipboardCheck],
+        ["Feedback Trends", "feedback-trends", Activity],
+        ["Improvement Actions", "improvement-actions", Route],
+      ],
+    },
   ],
 };
 

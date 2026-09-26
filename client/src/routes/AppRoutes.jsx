@@ -106,7 +106,7 @@ export default function AppRoutes() {
                       key={path}
                       path={path}
                       element={
-                        role === "admin" && ["users", "competencies", "job-role-requirements", "organizational-capability", "training-demand", "courses", "assessments", "certificates", "batches", "calendar", "results", "feedback", "audit-logs"].includes(path) ? (
+                        role === "admin" && ["users", "user-roles", "competencies", "job-role-requirements", "organizational-capability", "skill-gap-analysis", "training-demand", "courses", "assessments", "certificates", "batches", "calendar", "results", "feedback", "feedback-trends", "improvement-actions", "audit-logs", "training-reports", "competency-reports", "trainer-discovery", "trainer-verification", "announcements", "notifications", "knowledge-base", "succession-planning", "risk-assessment", "ttt-programme", "ttt-verification"].includes(path) ? (
                           <AdminExperiencePage view={path} />
                         ) : role === "trainer" && ["courses", "assigned-batches", "learning", "assessments", "question-bank", "training-sessions", "availability", "calendar", "results", "feedback", "train-the-trainer", "ttt-candidates"].includes(path) ? (
                           <TrainerExperiencePage view={path} />
