@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import {
   Activity, Award, BarChart3, Bell, BookOpen, CheckCircle2, Clock3, FileText,
@@ -10,6 +10,14 @@ import {
   Send, Image, Paperclip, Radio, Bold, Italic, List, Link2, AlertCircle,
   ThumbsUp, ThumbsDown, MessageSquare, TrendingDown as Trend2, RefreshCw,
 } from "lucide-react";
+import DetailModal, { DetailRows } from "../../components/ui/DetailModal";
+import useApi, { fmtDate } from "../../hooks/useApi";
+import api, { errorMessage } from "../../services/api";
+import { part2 } from "../../services/part2Service";
+import { part3 } from "../../services/part3Service";
+import { userService } from "../../services/userService";
+import { useToast } from "../../components/ui/Toast";
+import StatusBadge from "../../components/ui/StatusBadge";
 
 /* ═══════════════════════════════════════════════════════════
    SHARED PRIMITIVES
@@ -79,12 +87,18 @@ function DataTable({ columns, rows, onView, onEdit, viewLabel = "View", editLabe
   );
 }
 
-function SearchFilter({ placeholder = "Search...", extraFilters = [] }) {
+function SearchFilter({ placeholder = "Search...", extraFilters = [], value = "", onChange, onSubmit }) {
   return (
-    <div className="admin-search-filter">
+    <form
+      className="admin-search-filter"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit?.();
+      }}
+    >
       <div className="admin-search-wrap">
         <Search size={15} className="admin-search-icon" />
-        <input className="admin-search-input" placeholder={placeholder} />
+        <input className="admin-search-input" placeholder={placeholder} value={value} onChange={(e) => onChange?.(e.target.value)} />
       </div>
       {extraFilters.map(({ label, options }) => (
         <select key={label} className="admin-filter-select">
@@ -92,9 +106,22 @@ function SearchFilter({ placeholder = "Search...", extraFilters = [] }) {
           {options.map((o) => <option key={o}>{o}</option>)}
         </select>
       ))}
-      <button className="admin-filter-btn"><Filter size={14} /> Filter</button>
-    </div>
+      <button type="submit" className="admin-filter-btn"><Filter size={14} /> Filter</button>
+    </form>
   );
+}
+
+function ListState({ loading, error, empty, onRetry, children }) {
+  if (loading) return <div className="admin-panel"><p>Loading…</p></div>;
+  if (error)
+    return (
+      <div className="admin-panel" role="alert">
+        <p>{error}</p>
+        {onRetry && <button className="button button-secondary" onClick={onRetry}>Retry</button>}
+      </div>
+    );
+  if (empty) return <div className="admin-panel"><p>{empty}</p></div>;
+  return children;
 }
 
 function Tabs({ tabs, active, onChange }) {
@@ -136,51 +163,83 @@ const TTT_ROWS = [
 ];
 
 function TttOverviewPage({ onView }) {
+  const toast = useToast();
+  const [query, setQuery] = useState("");
+  const [programId, setProgramId] = useState("");
+  const programs = useApi(() => part3.get("/ttt/programs"), []);
+  const programRows = Array.isArray(programs.data) ? programs.data : [];
+  const activeProgram = programRows.find((p) => String(p._id) === String(programId)) || programRows.find((p) => p.status === "ACTIVE") || programRows[0];
+  const nominations = useApi(() => part3.get("/ttt/candidates"), []);
+  const nominationRows = (Array.isArray(nominations.data) ? nominations.data : []).filter((n) => !query || `${n.candidate?.name} ${n.competency?.name || ""}`.toLowerCase().includes(query.toLowerCase()));
+  const eligibility = useApi(() => (activeProgram ? part3.get("/ttt/eligibility", { competency: activeProgram.competency?._id || activeProgram.competency, frameworkVersion: activeProgram.frameworkVersion, targetLevel: activeProgram.targetLevel }) : Promise.resolve([])), [activeProgram?._id]);
+  const eligibleRows = (Array.isArray(eligibility.data) ? eligibility.data : []).filter((e) => !query || `${e.candidate?.name}`.toLowerCase().includes(query.toLowerCase()));
+  useEffect(() => {
+    if (!programId && programRows.length) {
+      const first = programRows.find((p) => p.status === "ACTIVE") || programRows[0];
+      setProgramId(first._id);
+    }
+  }, [programRows.length]);
+  const nominate = async (candidateId) => {
+    if (!activeProgram || !candidateId) return;
+    await nominations.run(() => part3.post("/ttt/nominations", { program: activeProgram._id, candidate: candidateId, rationale: "Nominated from the TTT overview after eligibility review.", requestId: crypto.randomUUID() }), toast, "Candidate nominated");
+  };
   return (
     <Shell
       eyebrow="TRAINERS › Train-the-Trainer"
       title="Train-the-Trainer Candidate Overview"
-      desc="Identify potential trainers from employees with strong competency and relevant experience."
-      action={<button className="button button-primary"><Plus size={14} /> Nominate Candidate</button>}
+      desc="Eligibility-checked candidates and recorded nominations. Verification creates reviewed expertise and promotes a trainee to trainer."
+      action={<Link className="button button-primary" to="/admin/train-the-trainer">Open Train the Trainer</Link>}
     >
       <KpiRow items={[
-        [Users, "24", "Potential Candidates", "", "#3b82f6"],
-        [CheckCircle2, "18", "Eligible for TTT", "", "#10b981"],
-        [Clock3, "4", "Under Review", "", "#f59e0b"],
-        [XCircle, "6", "Not Eligible", "", "#ef4444"],
+        [Users, String(eligibleRows.length || "—"), "Eligible Candidates", activeProgram?.title || "", "#3b82f6"],
+        [CheckCircle2, String(nominationRows.length || "—"), "Recorded Nominations", "", "#10b981"],
+        [Clock3, String(nominationRows.filter((n)=>["NOMINATED","ACCEPTED","IN_PROGRESS","TEACHING_PRACTICE","EVALUATED"].includes(n.status)).length), "In Progress", "", "#f59e0b"],
+        [Award, String(nominationRows.filter((n)=>n.status==="VERIFIED").length), "Verified", "", "#10b981"],
       ]} />
       <div className="admin-panel">
-        <SearchFilter
-          placeholder="Search employee..."
-          extraFilters={[
-            { label: "All Departments", options: ["Meteorology", "Climate", "NWP", "IT"] },
-            { label: "All Competencies", options: ["Radar Interpretation", "Weather Forecasting", "NWP", "Climate Analysis"] },
-            { label: "All Eligibility Status", options: ["Eligible", "Under Review", "Not Eligible"] },
-          ]}
-        />
-        <div className="admin-data-table">
-          <div className="admin-table-head" style={{ gridTemplateColumns: "2fr 1fr 1fr 1.5fr 0.7fr 1fr 1fr 0.8fr" }}>
-            <span>#  Name</span><span>Department</span><span>Current Role</span><span>Key Competency</span><span>Level</span><span>Relevant Exp.</span><span>TTT Eligibility</span><span>Action</span>
-          </div>
-          {TTT_ROWS.map((r, i) => (
-            <div key={i} className="admin-table-row" style={{ gridTemplateColumns: "2fr 1fr 1fr 1.5fr 0.7fr 1fr 1fr 0.8fr" }}>
-              <span className="ttt-name-cell"><span className="ttt-num">{i + 1}</span> {r[0]}</span>
-              <span>{r[1]}</span><span>{r[2]}</span><span>{r[3]}</span>
-              <span className="admin-level-badge">{r[4]}</span>
-              <span>{r[5]}</span>
-              <span className={`admin-badge ${r[6] === "Eligible" ? "admin-badge-approved" : r[6] === "Under Review" ? "admin-badge-pending" : "admin-badge-rejected"}`}>{r[6]}</span>
-              <span className="admin-table-actions">
-                <button className="admin-action-btn admin-action-view" onClick={() => onView(i)}><Eye size={12} /> View</button>
-              </span>
+        <label className="admin-form-label">Programme *
+          <select className="admin-form-select" value={programId} onChange={(e)=>setProgramId(e.target.value)}>
+            <option value="">Select programme</option>
+            {programRows.map((p)=><option key={p._id} value={p._id}>{p.title} · L{p.targetLevel} · {p.status}</option>)}
+          </select>
+        </label>
+        <SearchFilter placeholder="Search employee..." value={query} onChange={setQuery} />
+        <ListState loading={eligibility.loading} error={eligibility.error} onRetry={eligibility.reload} empty={eligibleRows.length || eligibility.loading || eligibility.error ? null : "Select a programme to check eligibility."}>
+          <div className="admin-data-table">
+            <div className="admin-table-head" style={{ gridTemplateColumns: "2fr 1.5fr 1fr 1fr 0.8fr" }}>
+              <span>#  Name</span><span>Competency</span><span>Target</span><span>Eligibility</span><span>Action</span>
             </div>
-          ))}
-        </div>
-        <div className="admin-pagination">
-          <span>Showing 1–6 of 24 candidates</span>
-          <div className="admin-pag-btns">
-            {[1,2,3,4].map(n=><button key={n} className={`admin-pag-btn ${n===1?"active":""}`}>{n}</button>)}
+            {eligibleRows.map((e, i) => (
+              <div key={e.candidate?._id || i} className="admin-table-row" style={{ gridTemplateColumns: "2fr 1.5fr 1fr 1fr 0.8fr" }}>
+                <span className="ttt-name-cell"><span className="ttt-num">{i + 1}</span> {e.candidate?.name} <small className="text-muted-sm">{e.candidate?.department || ""}</small></span>
+                <span>{activeProgram?.competency?.name || ""}</span>
+                <span className="admin-level-badge">L{activeProgram?.targetLevel}</span>
+                <span><StatusBadge status={e.status} /></span>
+                <span className="admin-table-actions">
+                  <button className="admin-action-btn admin-action-view" disabled={nominations.busy || e.status !== "ELIGIBLE"} onClick={() => nominate(e.candidate?._id)}>Nominate</button>
+                </span>
+              </div>
+            ))}
           </div>
-        </div>
+        </ListState>
+        <h3 style={{marginTop:16}}>Recorded nominations</h3>
+        <ListState loading={nominations.loading} error={nominations.error} onRetry={nominations.reload} empty={nominationRows.length || nominations.loading || nominations.error ? null : "No nominations recorded."}>
+          <div className="admin-data-table">
+            <div className="admin-table-head" style={{ gridTemplateColumns: "2fr 1.5fr 0.7fr 1fr 0.8fr" }}>
+              <span>Candidate</span><span>Programme</span><span>Level</span><span>Status</span><span>Action</span>
+            </div>
+            {nominationRows.map((n) => (
+              <div key={n._id} className="admin-table-row" style={{ gridTemplateColumns: "2fr 1.5fr 0.7fr 1fr 0.8fr" }}>
+                <span>{n.candidate?.name}</span><span>{n.program?.title}</span>
+                <span className="admin-level-badge">L{n.targetLevel}</span>
+                <span><StatusBadge status={n.status} /></span>
+                <span className="admin-table-actions">
+                  <button className="admin-action-btn admin-action-view" onClick={() => onView(n)}>View</button>
+                </span>
+              </div>
+            ))}
+          </div>
+        </ListState>
       </div>
     </Shell>
   );
@@ -189,91 +248,86 @@ function TttOverviewPage({ onView }) {
 /* ═══════════════════════════════════════════════════════════
    STEP 22: CANDIDATE TTT DETAILS
 ═══════════════════════════════════════════════════════════ */
-function TttCandidateDetails({ onBack }) {
+function TttCandidateDetails({ nomination, onBack }) {
   const [tab, setTab] = useState("overview");
+  const toast = useToast();
+  const detail = useApi(() => (nomination?._id ? part3.get(`/ttt/nominations/${nomination._id}`) : Promise.resolve(null)), [nomination?._id]);
+  const practices = useApi(() => (nomination?._id ? part3.get(`/ttt/nominations/${nomination._id}/practices`) : Promise.resolve([])), [nomination?._id]);
+  const learning = useApi(() => (["ACCEPTED","IN_PROGRESS","TEACHING_PRACTICE"].includes(nomination?.status) ? part3.get(`/ttt/nominations/${nomination._id}/learning`) : Promise.resolve(null)), [nomination?._id]);
+  const [reason, setReason] = useState("");
+  const n = detail.data || nomination || {};
+  const practiceRows = Array.isArray(practices.data) ? practices.data : [];
+  const initials = (n.candidate?.name || "?").split(" ").map((x) => x[0]).join("").slice(0, 2).toUpperCase();
+  const verify = async (outcome) => {
+    if (!reason && outcome === "VERIFIED") return;
+    await detail.run(() => part3.post(`/ttt/nominations/${n._id}/verify`, { outcome, reason: reason || "Returned for further development", expectedRevision: n.revision }), toast, outcome === "VERIFIED" ? "Trainer verified" : "Returned for further development");
+  };
   return (
     <Shell
-      eyebrow={<Breadcrumb items={[{ label: "Trainers", link: "/admin/trainer-discovery" }, { label: "Train-the-Trainer", link: "/admin/train-the-trainer" }, { label: "Candidate Details" }]} />}
+      eyebrow={<Breadcrumb items={[{ label: "Trainers", link: "/admin/trainer-discovery" }, { label: "Train-the-Trainer", link: "/admin/train-the-trainer" }, { label: n.candidate?.name || "Candidate Details" }]} />}
       title=""
       desc=""
     >
-      {/* Candidate header */}
       <div className="ttt-candidate-header">
-        <div className="ttt-candidate-avatar">RM</div>
+        <div className="ttt-candidate-avatar">{initials}</div>
         <div className="ttt-candidate-info">
-          <h2>Rohan Mehta</h2>
-          <p>Scientist B · Meteorology Department</p>
-          <span className="ttt-emp-id">Employee ID: MTE-1023</span>
+          <h2>{n.candidate?.name}</h2>
+          <p className="capitalize">{n.candidate?.role} · {n.candidate?.department || ""}</p>
+          <span className="ttt-emp-id">{n.program?.title} · Target L{n.targetLevel}</span>
         </div>
         <div className="ttt-candidate-actions">
           <button className="button button-secondary" onClick={onBack}><ArrowLeft size={14} /> Back to List</button>
-          <button className="button button-primary"><Plus size={14} /> Nominate for TTT</button>
+          <StatusBadge status={n.status} />
         </div>
       </div>
       <Tabs
-        tabs={[{ id: "overview", label: "Overview" }, { id: "competency", label: "Competency Profile" }, { id: "experience", label: "Experience & Achievements" }, { id: "suitability", label: "TTT Suitability" }, { id: "program", label: "Recommended Program" }]}
+        tabs={[{ id: "overview", label: "Overview" }, { id: "practice", label: "Teaching Practice" }, { id: "learning", label: "Learning" }, { id: "verification", label: "Verification" }]}
         active={tab}
         onChange={setTab}
       />
       {tab === "overview" && (
         <div className="ttt-detail-grid">
           <div className="admin-panel">
-            <h3>Basic Information</h3>
-            {[["Department", "Meteorology"], ["Current Role", "Scientist B"], ["Competency Level", "L3 – Proficient"], ["Relevant Experience", "5 years"], ["Previous Training", "Radar Systems, Data Analysis"], ["Location", "IMD Training Centre, Pune"]].map(([k, v]) => (
-              <div key={k} className="admin-detail-row"><span className="admin-detail-key">{k}</span><span className="admin-detail-val">{v}</span></div>
-            ))}
-          </div>
-          <div className="admin-panel">
-            <h3>Key Competencies</h3>
-            <div className="ttt-comp-table-head">
-              <span>Competency</span><span>Current Level</span><span>Required for Trainer</span><span>Meets Requirement</span>
-            </div>
-            {[["Radar Interpretation", "L3", "L3", true], ["Weather Forecasting", "L3", "L3", true], ["Data Visualization", "L2", "L3", false], ["Climate Analysis", "L3", "L3", true]].map(([c, cur, req, ok]) => (
-              <div key={c} className="ttt-comp-row">
-                <span>{c}</span>
-                <span className="admin-level-badge">{cur}</span>
-                <span className="admin-level-badge" style={{ background: "#f1f5f9" }}>{req}</span>
-                <span>{ok ? <CheckCircle2 size={16} color="#10b981" /> : <XCircle size={16} color="#ef4444" />}</span>
-              </div>
-            ))}
+            <h3>Nomination</h3>
+            <DetailRows rows={[["Programme", n.program?.title || "—"],["Competency", n.competency?.name || "—"],["Target level", n.targetLevel != null ? `L${n.targetLevel}` : "—"],["Status", n.status || "—"],["Rationale", n.rationale || "—"],["Nominated by", n.nominatedBy?.name || "—"]]} />
           </div>
           <div className="admin-panel ttt-eligibility-panel">
-            <h3>TTT Eligibility Assessment</h3>
-            <ul className="ttt-eligibility-list">
-              {["Strong subject matter expertise", "5+ years of relevant experience", "Good communication skills", "Positive feedback from peers", "Experienced in cross-department projects"].map((item) => (
-                <li key={item}><CheckCircle2 size={14} color="#10b981" />{item}</li>
-              ))}
-            </ul>
-            <div className="ttt-eligible-badge">
-              <CheckCircle2 size={20} color="#10b981" />
-              <div>
-                <strong>Eligible for TTT</strong>
-                <small>This candidate meets all the eligibility criteria for the Train-the-Trainer program.</small>
-              </div>
-            </div>
+            <h3>Eligibility snapshot</h3>
+            {(n.eligibilitySnapshot?.checks || []).length ? (
+              <ul className="ttt-eligibility-list">
+                {n.eligibilitySnapshot.checks.map((c) => (
+                  <li key={c.key}>{c.met ? <CheckCircle2 size={14} color="#10b981" /> : <XCircle size={14} color="#ef4444" />}{c.key}: {c.detail || (c.met ? "met" : "not met")}</li>
+                ))}
+              </ul>
+            ) : <p className="muted">No eligibility snapshot recorded.</p>}
+            {(n.eligibilitySnapshot?.missingInformation || []).length ? <p className="muted">Missing: {n.eligibilitySnapshot.missingInformation.map((m)=>m.detail || m.key).join("; ")}</p> : null}
+          </div>
+          <div className="admin-panel">
+            <h3>History</h3>
+            {(n.history || []).length ? n.history.map((h, i) => <div key={i} className="admin-detail-row"><span className="admin-detail-key">{fmtDate(h.at, true)}</span><span className="admin-detail-val">{h.from} → {h.to} · {h.reason || ""}</span></div>) : <p className="muted">No transitions recorded.</p>}
           </div>
         </div>
       )}
-      {tab === "suitability" && (
+      {tab === "practice" && (
         <div className="admin-panel">
-          <p className="admin-info-note"><Info size={14} /> Suitability points are coordinator recommendations, not automatic decisions. The coordinator makes and audits the final trainer assignment.</p>
-          <div className="ttt-suitability-scores">
-            {[["Subject Matter Expertise", 92, "#10b981"], ["Teaching Aptitude", 85, "#3b82f6"], ["Communication Skills", 88, "#8b5cf6"], ["Peer Collaboration", 79, "#f59e0b"], ["Overall Suitability", 86, "#10b981"]].map(([label, score, color]) => (
-              <div key={label} className="ttt-suit-row">
-                <span>{label}</span>
-                <div className="admin-cap-bar-bg" style={{ flex: 1 }}>
-                  <div className="admin-cap-bar-fill" style={{ width: `${score}%`, background: color }} />
-                </div>
-                <span style={{ color, fontWeight: 700, minWidth: 36 }}>{score}</span>
-              </div>
-            ))}
-          </div>
+          {practices.loading ? <p>Loading…</p> : practiceRows.length ? practiceRows.map((p) => (
+            <div key={p._id} className="admin-detail-row"><span className="admin-detail-key">v{p.version} {p.sessionTitle}</span><span className="admin-detail-val"><StatusBadge status={p.status} /> {p.evaluation ? `· ${p.evaluation.outcome} ${p.evaluation.score}` : ""}</span></div>
+          )) : <p className="muted">No teaching practice submitted. Submission stays in the candidate workspace.</p>}
         </div>
       )}
-      {(tab === "competency" || tab === "experience" || tab === "program") && (
-        <div className="admin-panel" style={{ textAlign: "center", padding: "3rem" }}>
-          <Activity size={36} color="#94a3b8" />
-          <p style={{ color: "#64748b", marginTop: "1rem" }}>Full {tab.replace(/-/g," ")} details would load from the employee's profile.</p>
+      {tab === "learning" && (
+        <div className="admin-panel">
+          {learning.data ? <DetailRows rows={[["Completed", `${learning.data.completed ?? "—"}/${learning.data.total ?? "—"}`],["Gate", learning.data.gate || "—"],["Note", learning.data.note || "—"], ...((learning.data.items||[]).map((it) => [`Course: ${it.course?.title}`, `${it.status} ${it.progressPercent ?? ""}%`]))]} /> : <p className="muted">Learning plan appears once the candidate accepts the nomination.</p>}
+        </div>
+      )}
+      {tab === "verification" && (
+        <div className="admin-panel">
+          <p className="admin-info-note"><Info size={14} /> Verification creates reviewed expertise and promotes a trainee to trainer. It is a human decision on reviewed practice, never automatic.</p>
+          <label className="admin-form-label">Verification reason *<textarea className="admin-remarks-input" value={reason} onChange={(e)=>setReason(e.target.value)} /></label>
+          <div className="admin-form-footer">
+            <button className="button button-primary" disabled={detail.busy || !reason || n.status !== "EVALUATED"} onClick={() => verify("VERIFIED")}>Verify as trainer</button>
+            <button className="button button-secondary" disabled={detail.busy} onClick={() => verify("RETURNED")}>Return for development</button>
+          </div>
         </div>
       )}
     </Shell>
@@ -488,9 +542,8 @@ function TttVerificationPage() {
 ═══════════════════════════════════════════════════════════ */
 function TttAdminPage() {
   const [view, setView] = useState("list");
-  if (view === "detail") return <TttCandidateDetails onBack={() => setView("list")} />;
-  if (view === "progress") return <TttProgressPage />;
-  if (view === "verification") return <TttVerificationPage />;
+  const [selected, setSelected] = useState(null);
+  if (view === "detail") return <TttCandidateDetails nomination={selected} onBack={() => { setSelected(null); setView("list"); }} />;
   return (
     <div className="admin-xp">
       <div className="admin-xp-head">
@@ -499,11 +552,10 @@ function TttAdminPage() {
           <h1 className="admin-xp-title">TTT Overview</h1>
         </div>
         <div className="admin-xp-actions">
-          <button className="button button-secondary" onClick={() => setView("progress")}>View Progress</button>
-          <button className="button button-secondary" onClick={() => setView("verification")}>View Verification</button>
+          <Link className="button button-secondary" to="/admin/train-the-trainer">Open Train the Trainer</Link>
         </div>
       </div>
-      <TttOverviewPage onView={() => setView("detail")} />
+      <TttOverviewPage onView={(n) => { setSelected(n); setView("detail"); }} />
     </div>
   );
 }
@@ -520,58 +572,61 @@ const USER_ROWS = [
 ];
 function UserManagementPage({ onViewUser }) {
   const [activeTab, setActiveTab] = useState("all");
+  const [page, setPage] = useState(1);
+  const [query, setQuery] = useState("");
+  const status = activeTab === "pending" ? "pending" : "";
+  const role = ["trainee", "trainer", "admin"].includes(activeTab) ? activeTab : "";
+  const list = useApi(() => userService.list({ ...(role && { role }), ...(status && { status }), page, limit: 10 }), [role, status, page]);
+  const users = list.data?.users || [];
+  const pagination = list.data?.pagination || {};
+  const shown = users.filter((u) => !query || `${u.name} ${u.email} ${u.department || ""}`.toLowerCase().includes(query.toLowerCase()));
   return (
     <Shell
       eyebrow="PEOPLE"
       title="User Management"
-      desc="Manage all registered users, their roles, and account status."
-      action={<button className="button button-primary"><Plus size={14} /> Add User</button>}
+      desc="Registered users with approval actions. Professional-role assignment, previous training and baseline stay in Users."
+      action={<Link className="button button-primary" to="/admin/users">Open User Approvals</Link>}
     >
       <KpiRow items={[
-        [Users, "248", "Total Users", "", "#3b82f6"],
-        [UserRound, "196", "Trainees", "", "#10b981"],
-        [UserCheck, "47", "Trainers", "", "#8b5cf6"],
-        [ShieldCheck, "5", "Admins", "", "#f59e0b"],
+        [Users, String(pagination.total ?? users.length), "Total Users", "", "#3b82f6"],
+        [UserRound, String(users.filter((u)=>u.role==="trainee").length), "Trainees (page)", "", "#10b981"],
+        [UserCheck, String(users.filter((u)=>u.role==="trainer").length), "Trainers (page)", "", "#8b5cf6"],
+        [ShieldCheck, String(users.filter((u)=>u.role==="admin").length), "Admins (page)", "", "#f59e0b"],
       ]} />
       <div className="admin-panel">
-        <SearchFilter
-          placeholder="Search by name, email or department..."
-          extraFilters={[
-            { label: "All Roles", options: ["Trainee", "Trainer", "Admin"] },
-            { label: "All Departments", options: ["Forecasting", "Radar", "Climate", "Satellite", "Administration"] },
-            { label: "All Status", options: ["Active", "Pending", "Inactive"] },
-          ]}
-        />
+        <SearchFilter placeholder="Search by name, email or department..." value={query} onChange={setQuery} />
         <Tabs
-          tabs={[{ id: "all", label: "All Users", count: 248 }, { id: "pending", label: "Pending Approval", count: 12 }, { id: "trainee", label: "Trainees (196)" }, { id: "trainer", label: "Trainers (47)" }, { id: "admin", label: "Admins (5)" }]}
+          tabs={[{ id: "all", label: "All Users" }, { id: "pending", label: "Pending Approval" }, { id: "trainee", label: "Trainees" }, { id: "trainer", label: "Trainers" }, { id: "admin", label: "Admins" }]}
           active={activeTab}
-          onChange={setActiveTab}
+          onChange={(t) => { setActiveTab(t); setPage(1); }}
         />
-        <div className="admin-data-table">
-          <div className="admin-table-head" style={{ gridTemplateColumns: "0.4fr 2fr 2fr 1fr 1.5fr 1fr 0.8fr" }}>
-            <span>#</span><span>Name</span><span>Email</span><span>Role</span><span>Department</span><span>Status</span><span>Action</span>
-          </div>
-          {USER_ROWS.map((r, i) => (
-            <div key={i} className="admin-table-row" style={{ gridTemplateColumns: "0.4fr 2fr 2fr 1fr 1.5fr 1fr 0.8fr" }}>
-              <span>{i + 1}</span>
-              <span className="user-name-cell"><span className="user-avatar-sm">{r[0][0]}</span>{r[0]}</span>
-              <span className="text-muted-sm">{r[1]}</span>
-              <span>{r[2]}</span><span>{r[3]}</span>
-              <span className={`admin-badge ${r[4] === "Active" ? "admin-badge-approved" : r[4] === "Pending" ? "admin-badge-pending" : "admin-badge-rejected"}`}>{r[4]}</span>
-              <span className="admin-table-actions">
-                <button className="admin-action-btn admin-action-view" onClick={() => onViewUser(i)}><Eye size={12} /> View</button>
-              </span>
+        <ListState loading={list.loading} error={list.error} onRetry={list.reload} empty={shown.length || list.loading || list.error ? null : "No users found for this filter."}>
+          <div className="admin-data-table">
+            <div className="admin-table-head" style={{ gridTemplateColumns: "0.4fr 2fr 2fr 1fr 1.5fr 1fr 0.8fr" }}>
+              <span>#</span><span>Name</span><span>Email</span><span>Role</span><span>Department</span><span>Status</span><span>Action</span>
             </div>
-          ))}
-        </div>
-        <div className="admin-pagination">
-          <span>Showing 1 to 5 of 248 users</span>
-          <div className="admin-pag-btns">
-            {[1,2,3,4,5].map(n=><button key={n} className={`admin-pag-btn ${n===1?"active":""}`}>{n}</button>)}
-            <span>…</span>
-            <button className="admin-pag-btn">50</button>
+            {shown.map((u, i) => (
+              <div key={u._id} className="admin-table-row" style={{ gridTemplateColumns: "0.4fr 2fr 2fr 1fr 1.5fr 1fr 0.8fr" }}>
+                <span>{(page - 1) * 10 + i + 1}</span>
+                <span className="user-name-cell"><span className="user-avatar-sm">{u.name?.[0]}</span>{u.name}</span>
+                <span className="text-muted-sm">{u.email}</span>
+                <span className="capitalize">{u.role}</span><span>{u.department || "—"}</span>
+                <span><StatusBadge status={u.accountStatus} /></span>
+                <span className="admin-table-actions">
+                  <button className="admin-action-btn admin-action-view" onClick={() => onViewUser(u)}><Eye size={12} /> View</button>
+                </span>
+              </div>
+            ))}
           </div>
-        </div>
+          <div className="admin-pagination">
+            <span>{pagination.total ?? shown.length} users · Page {page} of {Math.max(1, pagination.pages || 1)}</span>
+            <div className="admin-pag-btns">
+              <button className="admin-pag-btn" disabled={page <= 1} onClick={() => setPage(page - 1)}>Prev</button>
+              <button className="admin-pag-btn" disabled={page >= (pagination.pages || 1)} onClick={() => setPage(page + 1)}>Next</button>
+              <button className="admin-pag-btn" onClick={() => list.reload()}>Refresh</button>
+            </div>
+          </div>
+        </ListState>
       </div>
     </Shell>
   );
@@ -580,21 +635,34 @@ function UserManagementPage({ onViewUser }) {
 /* ═══════════════════════════════════════════════════════════
    STEP 26: USER DETAILS
 ═══════════════════════════════════════════════════════════ */
-function UserDetailsPage({ onBack, onManage }) {
+function UserDetailsPage({ user, onBack, onManage }) {
   const [tab, setTab] = useState("overview");
+  const toast = useToast();
+  const profile = useApi(() => (user?._id ? userService.get(user._id) : Promise.resolve(user)), [user?._id]);
+  const completions = useApi(() => (user?._id ? part2.get(`/trainees/${user._id}/course-completions`).catch(() => []) : Promise.resolve([])), [user?._id]);
+  const row = profile.data?.user || profile.data || user || {};
+  const completionRows = Array.isArray(completions.data) ? completions.data : [];
+  const initials = (row.name || "?").split(" ").map((x) => x[0]).join("").slice(0, 2).toUpperCase();
+  const approve = async (status) => {
+    await profile.run(() => userService.status(row._id, status), toast, `Account ${status}.`);
+  };
   return (
     <Shell eyebrow="" title="" desc="">
-      <Breadcrumb items={[{ label: "User Management", link: "/admin/user-roles" }, { label: "User Details" }]} />
+      <Breadcrumb items={[{ label: "User Management", link: "/admin/user-roles" }, { label: row.name || "User Details" }]} />
       <div className="user-detail-header">
         <div className="user-detail-avatar-wrap">
-          <div className="user-detail-avatar">AS</div>
+          <div className="user-detail-avatar">{initials}</div>
           <div>
-            <h2>Asha Sharma <span className="admin-badge admin-badge-approved">Active</span></h2>
-            <p>Trainee · Forecasting Department</p>
-            <p className="user-detail-contact"><span>asha.sharma@imd.gov.in</span><span>+91 98765 43210</span></p>
+            <h2>{row.name} <StatusBadge status={row.accountStatus} /></h2>
+            <p className="capitalize">{row.role} · {row.department || "—"}</p>
+            <p className="user-detail-contact"><span>{row.email}</span><span>{row.phone || ""}</span></p>
           </div>
         </div>
-        <button className="button button-primary" onClick={onManage}>Manage Account</button>
+        <span>
+          <button className="button button-secondary" onClick={onBack}><ArrowLeft size={14} /> Back to List</button>{" "}
+          {row.accountStatus === "pending" && <><button className="button button-primary" disabled={profile.busy} onClick={() => approve("approved")}>Approve</button> <button className="button button-secondary" disabled={profile.busy} onClick={() => approve("rejected")}>Reject</button></>}
+          {row.accountStatus === "approved" && <button className="button button-secondary" disabled={profile.busy} onClick={() => approve("suspended")}>Suspend</button>}
+        </span>
       </div>
       <Tabs
         tabs={[{ id: "overview", label: "Overview" }, { id: "training", label: "Training" }, { id: "competencies", label: "Competencies" }, { id: "certificates", label: "Certificates" }, { id: "activity", label: "Activity Log" }]}
@@ -604,46 +672,30 @@ function UserDetailsPage({ onBack, onManage }) {
       {tab === "overview" && (
         <div className="user-detail-grid">
           <div className="admin-panel">
-            <div className="user-detail-section-head"><h3>Professional Information</h3><button className="admin-action-btn admin-action-edit"><Edit size={12} /> Edit</button></div>
-            {[["Full Name", "Asha Sharma"], ["Employee ID", "MET2023015"], ["Designation", "Scientific Assistant"], ["Qualification", "M.Sc. Atmospheric Sciences"], ["Work Experience", "2 years"], ["Interests", "Weather Modeling · Radar Analysis"]].map(([k, v]) => (
-              <div key={k} className="admin-detail-row"><span className="admin-detail-key">{k}</span><span className="admin-detail-val">{v}</span></div>
-            ))}
+            <div className="user-detail-section-head"><h3>Professional Information</h3><Link className="admin-action-btn admin-action-view" to="/admin/users">Open in Users</Link></div>
+            <DetailRows rows={[["Full Name", row.name || "—"],["Email", row.email || "—"],["Designation", row.designation || "—"],["Department", row.department || "—"],["Phone", row.phone || "—"],["Qualifications", (row.qualifications||[]).join(", ") || "—"],["Skills", (row.skills||[]).join(", ") || "—"]]} />
           </div>
           <div>
             <div className="admin-panel" style={{ marginBottom: 14 }}>
               <h3>Account Information</h3>
-              {[["Role", "Trainee"], ["Status", "Active"], ["Account Created", "12 Jan 2023"], ["Last Login", "18 Mar 2024"], ["Approved By", "Admin"], ["Approve Date", "19 Jan 2023"]].map(([k, v]) => (
-                <div key={k} className="admin-detail-row">
-                  <span className="admin-detail-key">{k}</span>
-                  <span className="admin-detail-val">
-                    {k === "Role" ? <span className="admin-badge admin-badge-pending">{v}</span> : k === "Status" ? <span className="admin-badge admin-badge-approved">{v}</span> : v}
-                  </span>
-                </div>
-              ))}
+              <DetailRows rows={[["Role", row.role || "—"],["Status", row.accountStatus || "—"],["Professional role", row.jobRole?.title || row.jobRole || "Not assigned"]]} />
+              <p className="muted">Professional-role assignment, previous training and baseline stay in Users. Access-role changes happen only through TTT verification.</p>
+              <button className="button button-secondary" onClick={onManage}>Open in Users</button>
             </div>
             <div className="admin-panel">
-              <div className="user-detail-section-head"><h3>Competency Status</h3><button className="admin-action-btn admin-action-view"><Eye size={12} /> View Details</button></div>
-              {[["Radar Interpretation", "L2"], ["Weather Modelling", "L2"], ["Climate Analysis", "L2"]].map(([c, l]) => (
-                <div key={c} className="user-comp-row">
-                  <span>{c}</span>
-                  <span className="user-level-chip">{l}</span>
-                </div>
-              ))}
+              <div className="user-detail-section-head"><h3>Previous training</h3><span className="muted">{completionRows.length} records</span></div>
+              {completions.loading ? <p>Loading…</p> : completionRows.length ? completionRows.map((c) => <div key={c._id} className="user-comp-row"><span>{c.course?.title || "Course no longer available"}{c.completedAt ? ` · ${fmtDate(c.completedAt)}` : ""}</span><span className="user-level-chip">{c.sourceReference || ""}</span></div>) : <p className="muted">No previous training recorded.</p>}
             </div>
           </div>
         </div>
       )}
       {tab === "training" && (
         <div className="admin-panel">
-          <div className="user-training-stats">
-            {[["Enrolled Courses", "5"], ["Completed Courses", "3"], ["In Progress", "2"]].map(([l, v]) => (
-              <div key={l} className="user-train-stat"><b>{v}</b><span>{l}</span></div>
-            ))}
-          </div>
+          {completions.loading ? <p>Loading…</p> : completionRows.length ? completionRows.map((c) => <div key={c._id} className="user-comp-row"><span>{c.course?.title || "Course no longer available"}</span><span className="user-level-chip">{fmtDate(c.completedAt)}</span></div>) : <p className="muted">No previous training recorded. Recording stays in Users.</p>}
         </div>
       )}
       {(tab === "competencies" || tab === "certificates" || tab === "activity") && (
-        <div className="admin-panel" style={{ textAlign: "center", padding: "3rem" }}><Activity size={32} color="#94a3b8" /><p style={{ color: "#64748b" }}>{tab} details.</p></div>
+        <div className="admin-panel" style={{ textAlign: "center", padding: "3rem" }}><Activity size={32} color="#94a3b8" /><p style={{ color: "#64748b" }}>Full {tab} records stay in their own workspaces (Competency Framework, Certifications, Audit Logs).</p></div>
       )}
     </Shell>
   );
@@ -652,61 +704,42 @@ function UserDetailsPage({ onBack, onManage }) {
 /* ═══════════════════════════════════════════════════════════
    STEP 27: MANAGE USER ACCOUNT
 ═══════════════════════════════════════════════════════════ */
-function ManageUserAccountPage({ onBack, onReview }) {
-  const [newRole, setNewRole] = useState("trainer");
-  const [accountStatus, setAccountStatus] = useState("active");
-  const [reason, setReason] = useState("User has completed trainer verification and is now eligible to be promoted to Trainer.");
+function ManageUserAccountPage({ user, onBack, onReview }) {
+  const [accountStatus, setAccountStatus] = useState("approved");
+  const initials = (user?.name || "?").split(" ").map((x) => x[0]).join("").slice(0, 2).toUpperCase();
   return (
     <Shell eyebrow="" title="" desc="">
-      <Breadcrumb items={[{ label: "User Management" }, { label: "User Details" }, { label: "Manage User Account" }]} />
+      <Breadcrumb items={[{ label: "User Management" }, { label: user?.name || "User Details" }, { label: "Manage User Account" }]} />
       <h1 className="admin-xp-title">Manage User Account</h1>
-      <p className="admin-xp-desc">Update user role, account status and related information.</p>
+      <p className="admin-xp-desc">Approval and suspension only. There is no role-change API; a trainee becomes a trainer only through TTT verification.</p>
       <div className="manage-account-grid">
         <div>
           <div className="manage-user-card">
-            <div className="user-detail-avatar" style={{ width: 52, height: 52, fontSize: 16 }}>AS</div>
+            <div className="user-detail-avatar" style={{ width: 52, height: 52, fontSize: 16 }}>{initials}</div>
             <div>
-              <h3>Asha Sharma</h3>
-              <p>Trainee · Forecasting Department</p>
-              <span className="text-muted-sm">asha.sharma@imd.gov.in</span>
+              <h3>{user?.name}</h3>
+              <p className="capitalize">{user?.role} · {user?.department || "—"}</p>
+              <span className="text-muted-sm">{user?.email}</span>
             </div>
           </div>
           <div className="admin-panel" style={{ marginTop: 14 }}>
             <h3>Current Account Details</h3>
-            {[["Current Role", "Trainee"], ["Account Status", "Active"], ["Department", "Forecasting"], ["Employee ID", "MET2023015"]].map(([k, v]) => (
-              <div key={k} className="admin-detail-row">
-                <span className="admin-detail-key">{k}</span>
-                <span className="admin-detail-val">
-                  {k === "Current Role" ? <span className="admin-badge admin-badge-pending">{v}</span> : k === "Account Status" ? <span className="admin-badge admin-badge-approved">{v}</span> : v}
-                </span>
-              </div>
-            ))}
+            <DetailRows rows={[["Current Role", user?.role || "—"],["Account Status", user?.accountStatus || "—"],["Department", user?.department || "—"]]} />
           </div>
         </div>
         <div>
           <div className="admin-info-callout" style={{ marginBottom: 14 }}>
             <CheckCircle2 size={16} color="#10b981" />
             <div>
-              <strong>System Recommendation</strong>
-              <p style={{ margin: "4px 0 4px", fontSize: 12 }}>This user has completed trainer verification and is eligible to be promoted to Trainer.</p>
-              <span className="admin-badge admin-badge-approved">Recommended Role: Trainer</span>
+              <strong>Boundary</strong>
+              <p style={{ margin: "4px 0 4px", fontSize: 12 }}>Approving lets the user sign in. Role promotion happens only through Train-the-Trainer verification.</p>
             </div>
           </div>
           <div className="admin-panel">
-            <h3>Update Account Information</h3>
-            <label className="admin-form-label" style={{ marginBottom: 12 }}>New Role *
-              <div className="role-radio-group">
-                {[["trainee", "Trainee", "Can enrol in courses and track own development"], ["trainer", "Trainer", "Can create and deliver training, assess trainees"], ["admin", "Admin", "Full system access and administrative privileges"]].map(([val, label, desc]) => (
-                  <label key={val} className={`role-radio-card ${newRole === val ? "selected" : ""}`} onClick={() => setNewRole(val)}>
-                    <input type="radio" name="role" value={val} checked={newRole === val} onChange={() => setNewRole(val)} />
-                    <div><strong>{label}</strong><span>{desc}</span></div>
-                  </label>
-                ))}
-              </div>
-            </label>
+            <h3>Update Account Status</h3>
             <label className="admin-form-label">Account Status *
               <div className="status-radio-group">
-                {[["active", "Active — User can log in and access the system"], ["inactive", "Inactive — User cannot log in to the system"]].map(([val, desc]) => (
+                {[["approved", "Approved — User can log in and access the system"], ["rejected", "Rejected — User cannot log in"], ["suspended", "Suspended — Approved user loses access"]].map(([val, desc]) => (
                   <label key={val} className={`status-radio ${accountStatus === val ? "selected" : ""}`} onClick={() => setAccountStatus(val)}>
                     <input type="radio" name="status" value={val} checked={accountStatus === val} onChange={() => setAccountStatus(val)} />
                     <span>{desc}</span>
@@ -714,13 +747,9 @@ function ManageUserAccountPage({ onBack, onReview }) {
                 ))}
               </div>
             </label>
-            <label className="admin-form-label" style={{ marginTop: 12 }}>Change Reason *
-              <textarea className="admin-remarks-input" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} rows={3} />
-              <span className="char-count">{reason.length}/500</span>
-            </label>
             <div className="admin-form-footer">
               <button className="button button-secondary" onClick={onBack}>Cancel</button>
-              <button className="button button-primary" onClick={onReview}>Review Changes</button>
+              <button className="button button-primary" onClick={() => onReview({ status: accountStatus })}>Review Changes</button>
             </div>
           </div>
         </div>
@@ -732,41 +761,36 @@ function ManageUserAccountPage({ onBack, onReview }) {
 /* ═══════════════════════════════════════════════════════════
    STEP 28: CONFIRM & UPDATE
 ═══════════════════════════════════════════════════════════ */
-function ConfirmUpdatePage({ onBack, onConfirm }) {
+function ConfirmUpdatePage({ user, change, busy, onBack, onConfirm }) {
+  const initials = (user?.name || "?").split(" ").map((x) => x[0]).join("").slice(0, 2).toUpperCase();
   return (
     <Shell eyebrow="" title="" desc="">
-      <Breadcrumb items={[{ label: "User Management" }, { label: "User Details" }, { label: "Manage User Account" }, { label: "Review Account Changes" }]} />
+      <Breadcrumb items={[{ label: "User Management" }, { label: user?.name || "User Details" }, { label: "Manage User Account" }, { label: "Review Account Changes" }]} />
       <h1 className="admin-xp-title">Review Account Changes</h1>
       <p className="admin-xp-desc">Please review the changes before updating the user account.</p>
       <div className="confirm-update-grid">
         <div className="admin-panel">
           <div className="manage-user-card" style={{ marginBottom: 16 }}>
-            <div className="user-detail-avatar" style={{ width: 44, height: 44, fontSize: 14 }}>AS</div>
-            <div><h3 style={{ margin: 0 }}>Asha Sharma</h3><p style={{ margin: 0 }}>Trainee · Forecasting Department</p><span className="text-muted-sm">asha.sharma@imd.gov.in</span></div>
+            <div className="user-detail-avatar" style={{ width: 44, height: 44, fontSize: 14 }}>{initials}</div>
+            <div><h3 style={{ margin: 0 }}>{user?.name}</h3><p style={{ margin: 0 }} className="capitalize">{user?.role} · {user?.department || "—"}</p><span className="text-muted-sm">{user?.email}</span></div>
           </div>
           <h3>Change Summary</h3>
           <div className="change-summary-table">
             <div className="change-summary-head"><span>Field</span><span>Current Value</span><span></span><span>New Value</span></div>
-            {[["Role", "Trainee", "Trainer"], ["Account Status", "Active", "Active"], ["Department", "Forecasting", "Forecasting"], ["Access Permissions", "Trainee Access", "Trainer Access"]].map(([f, cur, nw]) => (
-              <div key={f} className="change-summary-row">
-                <span>{f}</span>
-                <span className={`admin-badge ${cur === "Active" ? "admin-badge-approved" : "admin-badge-pending"}`}>{cur}</span>
-                <ArrowRight size={14} color="#94a3b8" />
-                <span className={`admin-badge ${nw === "Trainer" || nw === "Active" ? "admin-badge-approved" : "admin-badge-pending"}`}>{nw}</span>
-              </div>
-            ))}
-          </div>
-          <div className="change-reason-display">
-            <strong>Change Reason:</strong>
-            <p>User has completed trainer verification and is now eligible to be promoted to Trainer.</p>
+            <div className="change-summary-row">
+              <span>Account Status</span>
+              <span><StatusBadge status={user?.accountStatus} /></span>
+              <ArrowRight size={14} color="#94a3b8" />
+              <span><StatusBadge status={change?.status} /></span>
+            </div>
           </div>
           <div className="admin-info-callout" style={{ background: "#fffbeb", borderColor: "#fde68a", color: "#92400e", marginTop: 12 }}>
             <AlertTriangle size={16} color="#d97706" />
-            <span><strong>Important: </strong>Changing this user's role will automatically update their access permissions and available features according to the selected role.</span>
+            <span><strong>Boundary: </strong>this changes sign-in access only. It never changes an access role or a competency level.</span>
           </div>
           <div className="admin-form-footer">
             <button className="button button-secondary" onClick={onBack}><ArrowLeft size={14} /> Edit Changes</button>
-            <button className="button button-primary" onClick={onConfirm}>Confirm & Update</button>
+            <button className="button button-primary" disabled={busy} onClick={onConfirm}>Confirm & Update</button>
           </div>
         </div>
       </div>
@@ -778,22 +802,39 @@ function ConfirmUpdatePage({ onBack, onConfirm }) {
    USER ROLES ROUTER
 ═══════════════════════════════════════════════════════════ */
 function UsersRolesPage() {
+  const toast = useToast();
   const [view, setView] = useState("list");
-  const [confirmed, setConfirmed] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [change, setChange] = useState(null);
+  const [confirmed, setConfirmed] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const confirmChange = async () => {
+    if (!selected?._id || !change?.status) return;
+    setBusy(true);
+    try {
+      const updated = await userService.status(selected._id, change.status);
+      const next = updated?.user || updated;
+      setConfirmed(next);
+    } catch (e) {
+      toast(e?.response?.data?.message || "Unable to update account");
+    } finally {
+      setBusy(false);
+    }
+  };
   if (confirmed) return (
     <Shell title="Account Updated" desc="">
       <div className="admin-panel admin-success-card">
         <CheckCircle2 size={48} color="#10b981" />
         <h2>Account Updated Successfully</h2>
-        <p>Asha Sharma has been promoted to Trainer. Access permissions updated.</p>
-        <button className="button button-primary" onClick={() => { setConfirmed(false); setView("list"); }}>Back to User Management</button>
+        <p>{confirmed.name} is now {confirmed.accountStatus}. Access permissions updated.</p>
+        <button className="button button-primary" onClick={() => { setConfirmed(null); setSelected(null); setChange(null); setView("list"); }}>Back to User Management</button>
       </div>
     </Shell>
   );
-  if (view === "manage") return <ManageUserAccountPage onBack={() => setView("detail")} onReview={() => setView("confirm")} />;
-  if (view === "confirm") return <ConfirmUpdatePage onBack={() => setView("manage")} onConfirm={() => setConfirmed(true)} />;
-  if (view === "detail") return <UserDetailsPage onBack={() => setView("list")} onManage={() => setView("manage")} />;
-  return <UserManagementPage onViewUser={() => setView("detail")} />;
+  if (view === "manage") return <ManageUserAccountPage user={selected} onBack={() => setView("detail")} onReview={(c) => { setChange(c); setView("confirm"); }} />;
+  if (view === "confirm") return <ConfirmUpdatePage user={selected} change={change} busy={busy} onBack={() => setView("manage")} onConfirm={confirmChange} />;
+  if (view === "detail") return <UserDetailsPage user={selected} onBack={() => { setSelected(null); setView("list"); }} onManage={() => setView("manage")} />;
+  return <UserManagementPage onViewUser={(u) => { setSelected(u); setView("detail"); }} />;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -808,27 +849,36 @@ const COMM_ROWS = [
 ];
 
 function CommunicationPage() {
+  const toast = useToast();
   const [view, setView] = useState("list");
   const [activeTab, setActiveTab] = useState("all");
+  const [detail, setDetail] = useState(null);
+  const list = useApi(() => part2.get("/announcements"), []);
+  const rows = (Array.isArray(list.data) ? list.data : []).filter((r) => activeTab === "all" || (r.category || "").toLowerCase().includes(activeTab === "announcements" ? "announce" : activeTab === "learning" ? "new_content" : activeTab));
 
   if (view === "create") return <CreateAnnouncementPage onBack={() => setView("list")} onReview={() => setView("review")} />;
   if (view === "review") return <ReviewPublishPage onBack={() => setView("create")} onPublish={() => setView("published")} />;
   if (view === "published") return <PublishedStatusPage onNew={() => setView("create")} />;
 
-  const typeColor = { Announcement: "#3b82f6", Notification: "#f59e0b", "Learning Update": "#8b5cf6", Achievement: "#f59e0b" };
+  const publish = async (row) => {
+    await list.run(() => part2.post(`/announcements/${row._id}/publish`, { reason: "Published from the announcements overview" }), toast, "Announcement published");
+  };
+  const archive = async (row) => {
+    await list.run(() => part2.post(`/announcements/${row._id}/archive`, { reason: "Archived from the announcements overview" }), toast, "Announcement archived");
+  };
 
   return (
     <Shell
       eyebrow="COMMUNICATION"
       title="Communication"
-      desc="Publish announcements, notifications, achievements and learning updates."
-      action={<button className="button button-primary" onClick={() => setView("create")}><Plus size={14} /> Create Announcement</button>}
+      desc="Coordinator-published announcements. Publishing fans out notifications but never changes workflow state."
+      action={<Link className="button button-primary" to="/admin/announcements">Open Announcements</Link>}
     >
       <KpiRow items={[
-        [Megaphone, "12", "Announcements", "", "#3b82f6"],
-        [Bell, "36", "Notifications", "", "#f59e0b"],
-        [BookOpen, "8", "Learning Updates", "", "#8b5cf6"],
-        [Award, "5", "Achievements", "", "#10b981"],
+        [Megaphone, String(rows.filter((r)=>r.status==="PUBLISHED").length || rows.length), "Announcements", "", "#3b82f6"],
+        [Bell, String(rows.filter((r)=>r.status==="DRAFT").length), "Drafts", "", "#f59e0b"],
+        [BookOpen, String(rows.filter((r)=>r.showOnHomepage).length), "Homepage items", "", "#8b5cf6"],
+        [Award, String(rows.filter((r)=>r.pinned).length), "Pinned", "", "#10b981"],
       ]} />
       <div className="admin-panel">
         <Tabs
@@ -836,42 +886,56 @@ function CommunicationPage() {
           active={activeTab}
           onChange={setActiveTab}
         />
-        <div className="comm-filter-bar">
-          <select className="admin-filter-select"><option>All Status</option><option>Active</option><option>Expired</option><option>Draft</option></select>
-        </div>
-        <div className="admin-data-table">
-          <div className="admin-table-head" style={{ gridTemplateColumns: "0.4fr 2.5fr 1.2fr 1fr 1fr 1fr 0.7fr" }}>
-            <span>#</span><span>Title</span><span>Type</span><span>Audience</span><span>Date</span><span>Status</span><span>Action</span>
-          </div>
-          {COMM_ROWS.map((r, i) => (
-            <div key={i} className="admin-table-row" style={{ gridTemplateColumns: "0.4fr 2.5fr 1.2fr 1fr 1fr 1fr 0.7fr" }}>
-              <span>{i + 1}</span>
-              <span style={{ fontWeight: 500 }}>{r[0]}</span>
-              <span className="comm-type-badge" style={{ background: (typeColor[r[1]] || "#64748b") + "22", color: typeColor[r[1]] || "#64748b" }}>{r[1]}</span>
-              <span>{r[2]}</span><span>{r[3]}</span>
-              <span className={`admin-badge ${r[4] === "Active" ? "admin-badge-approved" : "admin-badge-rejected"}`}>{r[4]}</span>
-              <span className="admin-table-actions">
-                <button className="admin-action-btn admin-action-view"><Eye size={12} /> View</button>
-              </span>
+        <ListState loading={list.loading} error={list.error} onRetry={list.reload} empty={rows.length || list.loading || list.error ? null : "No announcements recorded."}>
+          <div className="admin-data-table">
+            <div className="admin-table-head" style={{ gridTemplateColumns: "0.4fr 2.5fr 1.2fr 1fr 1fr 1fr 1.4fr" }}>
+              <span>#</span><span>Title</span><span>Category</span><span>Audience</span><span>Date</span><span>Status</span><span>Action</span>
             </div>
-          ))}
-        </div>
-        <div className="admin-pagination">
-          <span>Showing 1 to 5 of 12 items</span>
-          <div className="admin-pag-btns">
-            {[1,2,3].map(n=><button key={n} className={`admin-pag-btn ${n===1?"active":""}`}>{n}</button>)}
+            {rows.map((r, i) => (
+              <div key={r._id} className="admin-table-row" style={{ gridTemplateColumns: "0.4fr 2.5fr 1.2fr 1fr 1fr 1fr 1.4fr" }}>
+                <span>{i + 1}</span>
+                <span style={{ fontWeight: 500 }}>{r.pinned ? "📌 " : ""}{r.title}</span>
+                <span>{(r.category || "").replaceAll("_", " ")}</span>
+                <span>{r.audience}</span><span>{fmtDate(r.publishAt || r.createdAt)}</span>
+                <span><StatusBadge status={r.status} /></span>
+                <span className="admin-table-actions">
+                  <button className="admin-action-btn admin-action-view" onClick={() => setDetail(r)}><Eye size={12} /> View</button>
+                  {r.status === "DRAFT" && <button className="admin-action-btn admin-action-edit" disabled={list.busy} onClick={() => publish(r)}>Publish</button>}
+                  {r.status !== "ARCHIVED" && <button className="admin-action-btn admin-action-edit" disabled={list.busy} onClick={() => archive(r)}>Archive</button>}
+                </span>
+              </div>
+            ))}
           </div>
-        </div>
+        </ListState>
       </div>
+      {detail && <DetailModal title={detail.title} subtitle={`${(detail.category || "").replaceAll("_"," ")} · audience ${detail.audience}`} onClose={() => setDetail(null)} wide actions={<Link className="button button-secondary" to="/admin/announcements">Open full workspace</Link>}><p>{detail.body}</p><DetailRows rows={[["Status", detail.status],["Published", fmtDate(detail.publishAt)],["Homepage", detail.showOnHomepage ? "Yes" : "No"],["Pinned", detail.pinned ? "Yes" : "No"],["Author", detail.createdBy?.name || "—"]]} /></DetailModal>}
     </Shell>
   );
 }
 
 function CreateAnnouncementPage({ onBack, onReview }) {
-  const [audience, setAudience] = useState("trainees");
-  const [schedule, setSchedule] = useState("now");
-  const [title, setTitle] = useState("Advanced Radar Interpretation Training");
-  const [message, setMessage] = useState("We are excited to announce the upcoming training program on Advanced Radar Interpretation. This course will be conducted by domain experts and will help enhance your forecasting capabilities.");
+  const toast = useToast();
+  const [audience, setAudience] = useState("ALL");
+  const [category, setCategory] = useState("ANNOUNCEMENT");
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
+  const [summary, setSummary] = useState("");
+  const [showOnHomepage, setShowOnHomepage] = useState(true);
+  const [pinned, setPinned] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    if (!title || !message) return;
+    setBusy(true);
+    try {
+      await part2.post("/announcements", { title, body: message, summary: summary || undefined, category, audience, showOnHomepage, pinned });
+      toast("Announcement saved as draft");
+      onReview();
+    } catch (e) {
+      toast(e?.response?.data?.message || "Unable to save announcement");
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <Shell eyebrow="" title="" desc="">
       <Breadcrumb items={[{ label: "Communication", link: "/admin/announcements" }, { label: "Create Announcement" }]} />
@@ -883,55 +947,34 @@ function CreateAnnouncementPage({ onBack, onReview }) {
             <input className="admin-form-input" value={title} onChange={e => setTitle(e.target.value)} />
           </label>
           <label className="admin-form-label" style={{ marginTop: 14 }}>Message *
-            <div className="ann-editor-toolbar">
-              <button><Bold size={13} /></button><button><Italic size={13} /></button><button><List size={13} /></button><button><Link2 size={13} /></button>
-            </div>
             <textarea className="admin-remarks-input" style={{ minHeight: 120 }} value={message} onChange={e => setMessage(e.target.value)} />
-            <span className="char-count">{message.length}/1000</span>
+            <span className="char-count">{message.length}/5000</span>
           </label>
-          <label className="admin-form-label" style={{ marginTop: 14 }}>Schedule *
-            <div className="schedule-radio-group">
-              {[["now", "Publish Now"], ["later", "Schedule for Later"]].map(([v, l]) => (
-                <label key={v} className={`status-radio ${schedule === v ? "selected" : ""}`} onClick={() => setSchedule(v)}>
-                  <input type="radio" name="schedule" value={v} checked={schedule === v} onChange={() => setSchedule(v)} />
-                  <span>{l}</span>
-                </label>
-              ))}
-            </div>
-            {schedule === "later" && (
-              <div className="schedule-time-row">
-                <input type="date" className="admin-form-input" defaultValue="2026-09-15" />
-                <input type="time" className="admin-form-input" defaultValue="10:00" />
-              </div>
-            )}
+          <label className="admin-form-label" style={{ marginTop: 14 }}>Short summary (optional)
+            <input className="admin-form-input" value={summary} onChange={e => setSummary(e.target.value)} />
+          </label>
+          <label className="admin-form-label" style={{ marginTop: 14 }}>Category
+            <select className="admin-form-select" value={category} onChange={(e) => setCategory(e.target.value)}>
+              {["ANNOUNCEMENT","NOTIFICATION","ACHIEVEMENT","NEW_CONTENT"].map((c) => <option key={c} value={c}>{c.replaceAll("_"," ")}</option>)}
+            </select>
           </label>
         </div>
         <div>
           <div className="admin-panel" style={{ marginBottom: 14 }}>
             <h3>Audience *</h3>
             <div className="audience-radio-group">
-              {[["all", "All Users"], ["trainees", "Trainees"], ["trainers", "Trainers"], ["dept", "Selected Department"]].map(([v, l]) => (
+              {[["ALL", "All Users"], ["TRAINEE", "Trainees"], ["TRAINER", "Trainers"], ["ADMIN", "Admins"]].map(([v, l]) => (
                 <label key={v} className={`audience-radio ${audience === v ? "selected" : ""}`} onClick={() => setAudience(v)}>
                   <Radio size={14} /> {l}
                 </label>
               ))}
             </div>
-          </div>
-          <div className="admin-panel" style={{ marginBottom: 14 }}>
-            <h3>Department</h3>
-            <select className="admin-form-select" style={{ width: "100%" }}><option>Forecasting</option><option>R&D</option><option>Regional Centres</option></select>
-          </div>
-          <div className="admin-panel">
-            <h3>Attachments (Optional)</h3>
-            <div className="ann-upload-zone">
-              <Upload size={24} color="#94a3b8" />
-              <p>Click to upload or drag and drop</p>
-              <small>PDF, PPT, DOC (Max 10MB)</small>
-            </div>
+            <label className="admin-form-label" style={{ marginTop: 12 }}><input type="checkbox" checked={showOnHomepage} onChange={(e) => setShowOnHomepage(e.target.checked)} /> Show on the public homepage</label>
+            <label className="admin-form-label"><input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} /> Pin to the top</label>
           </div>
           <div className="admin-form-footer" style={{ marginTop: 14 }}>
             <button className="button button-secondary" onClick={onBack}>Cancel</button>
-            <button className="button button-primary" onClick={onReview}>Review Announcement →</button>
+            <button className="button button-primary" disabled={busy || !title || !message} onClick={save}>Save draft →</button>
           </div>
         </div>
       </div>
@@ -1038,50 +1081,29 @@ function PublishedStatusPage({ onNew }) {
    STEP 33–36: REPORTS & ANALYTICS
 ═══════════════════════════════════════════════════════════ */
 function ReportsPage() {
-  const [view, setView] = useState("overview");
-  if (view === "configure") return <ConfigureReportPage onBack={() => setView("overview")} onGenerate={() => setView("output")} />;
-  if (view === "report") return <ReportOutputPage onBack={() => setView("overview")} onAnother={() => setView("configure")} />;
-  if (view === "output") return <ReportOutputPage onBack={() => setView("overview")} onAnother={() => setView("configure")} />;
-
-  const REPORT_TYPES = [
-    { title: "Training Participation", icon: Users, desc: "Enrolment, attendance and completion statistics.", color: "#3b82f6" },
-    { title: "Course-wise Performance", icon: BarChart3, desc: "Assessment scores and learning outcomes.", color: "#10b981" },
-    { title: "Certification Reports", icon: Award, desc: "Certification status and validity details.", color: "#f59e0b" },
-    { title: "User Activity Report", icon: Activity, desc: "Login activity and platform usage statistics.", color: "#8b5cf6" },
-    { title: "Department-wise Analysis", icon: Building2, desc: "Compare training data across departments.", color: "#ec4899" },
-    { title: "Trainer Contribution", icon: UserCheck, desc: "Training sessions and trainee feedback.", color: "#06b6d4" },
-  ];
-
+  const audit = useApi(() => part2.get("/audit"), []);
+  const [detail, setDetail] = useState(null);
+  const rows = audit.data?.items || audit.data || [];
   return (
     <Shell
       eyebrow="REPORTS & ANALYTICS"
       title="Reports & Analytics"
-      desc="Monitor training programmes, participation and organizational learning outcomes."
-      action={<button className="button button-secondary" onClick={() => setView("configure")}><Download size={14} /> Generate Report</button>}
+      desc="Read-only decision audit. There is no single analytics API; capability, demand, capacity and AI activity stay in their own workspaces."
+      action={<Link className="button button-secondary" to="/admin/organizational-capability">Open Capability</Link>}
     >
       <KpiRow items={[
-        [BookOpen, "48", "Total Courses", "", "#3b82f6"],
-        [Users, "1,284", "Total Enrollments", "", "#10b981"],
-        [Award, "836", "Certifications", "", "#f59e0b"],
-        [ClipboardCheck, "2,156", "Assessments Taken", "", "#8b5cf6"],
-        [Activity, "78%", "Participation Rate", "", "#ec4899"],
+        [ScrollText,String(rows.length || "—"),"Audit records","","#3b82f6"],
+        [Users,String(new Set(rows.map((r)=>r.actor?.name || r.actor)).size || "—"),"Actors","","#10b981"],
+        [Activity,String(new Set(rows.map((r)=>r.action)).size || "—"),"Decision types","","#8b5cf6"],
+        [Clock3,String(new Set(rows.map((r)=>r.entityType)).size || "—"),"Entity types","","#ec4899"],
       ]} />
       <div className="admin-panel">
-        <h3>Report Categories</h3>
-        <p style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>Generate and view detailed reports for different areas.</p>
-        <div className="report-types-grid">
-          {REPORT_TYPES.map(({ title, icon: Icon, desc, color }) => (
-            <div key={title} className="report-type-card" onClick={() => setView("configure")} style={{ "--rt-color": color }}>
-              <div className="report-type-icon" style={{ background: color + "22", color }}><Icon size={22} /></div>
-              <div>
-                <h4>{title}</h4>
-                <p>{desc}</p>
-              </div>
-              <ChevronRight size={16} className="report-type-arrow" />
-            </div>
-          ))}
-        </div>
+        <ListState loading={audit.loading} error={audit.error} onRetry={audit.reload} empty={rows.length || audit.loading || audit.error ? null : "No audit records yet."}>
+          <DataTable columns={["Time","Actor","Action","Entity","Transition"]} rows={rows.slice(0,20).map((r)=>[fmtDate(r.createdAt || r.timestamp, true),r.actor?.name || "—",r.action,r.entityType,`${r.previousStatus || "—"} → ${r.newStatus || "—"}`])} onView={(i)=>setDetail(rows[i])} viewLabel="View"/>
+        </ListState>
+        <p className="muted">Charts are not part of the scope; indicators appear on the dashboard, capability, demand, capacity and AI activity pages. <Link to="/admin/training-demand">Training demand</Link> · <Link to="/admin/trainer-capacity">Trainer capacity</Link></p>
       </div>
+      {detail && <DetailModal title={detail.action} subtitle={fmtDate(detail.createdAt || detail.timestamp, true)} onClose={()=>setDetail(null)} wide><DetailRows rows={[["Actor", detail.actor?.name || "—"],["Entity", `${detail.entityType || "—"} ${detail.entityId || ""}`],["Transition", `${detail.previousStatus || "—"} → ${detail.newStatus || "—"}`],["Reason", detail.reason || "—"],["Correlation", detail.correlationId || "—"]]} /></DetailModal>}
     </Shell>
   );
 }
@@ -1229,48 +1251,67 @@ const FEEDBACK_ROWS = [
 
 function FeedbackPage() {
   const [view, setView] = useState("overview");
-  if (view === "details") return <FeedbackDetailsPage onBack={() => setView("overview")} onTrends={() => setView("trends")} />;
-  if (view === "trends") return <FeedbackTrendsPage onBack={() => setView("details")} onAction={() => setView("action")} />;
-  if (view === "action") return <ImprovementActionPage onBack={() => setView("trends")} />;
-
+  const [selected, setSelected] = useState(null);
+  const fb = useApi(() => part3.get("/feedback"), []);
+  const aggregates = fb.data?.aggregates || [];
+  const responses = fb.data?.responses || [];
+  if (view === "details") return <FeedbackDetailsPage aggregate={selected} responses={responses} privacy={fb.data?.privacy} onBack={() => setView("overview")} />;
   const [tab, setTab] = useState("all");
+  const shown = aggregates.filter((a) => tab === "all" || (a.targetType || "").toLowerCase().includes(tab === "courses" ? "course" : tab === "trainers" ? "trainer" : tab));
   return (
     <Shell
       eyebrow="FEEDBACK"
       title="Feedback Overview"
-      desc="View feedback from trainees to understand their learning experience and identify areas for improvement."
-      action={<button className="button button-secondary" onClick={() => setView("details")}><Eye size={14} /> View Detailed Feedback</button>}
+      desc="Scoped participant feedback. Feedback never verifies competency or determines trainer suitability."
+      action={<Link className="button button-secondary" to="/admin/feedback">Open Feedback</Link>}
     >
       <KpiRow items={[
-        [Star, "4.2", "Average Rating", "+0.3 from last period", "#f59e0b"],
-        [FileText, "1,248", "Total Feedback", "+17% from last period", "#3b82f6"],
-        [ThumbsUp, "86%", "Positive Feedback", "", "#10b981"],
-        [ThumbsDown, "14%", "Needs Improvement", "", "#ef4444"],
+        [Star, String(shown.length || "—"), "Feedback targets", "", "#f59e0b"],
+        [FileText, String(responses.length || shown.reduce((n,a)=>n+(a.count||0),0)), "Responses", "", "#3b82f6"],
+        [ThumbsUp, String(shown.filter((a)=>Number(a.average) >= 4).length), "High-rated targets", "", "#10b981"],
+        [ThumbsDown, String(shown.filter((a)=>Number(a.average) < 4).length), "Lower-rated targets", "", "#ef4444"],
       ]} />
       <div className="admin-panel">
         <Tabs
-          tabs={[{ id: "all", label: "All Feedback" }, { id: "courses", label: "Courses" }, { id: "trainers", label: "Trainers" }, { id: "content", label: "Learning Content" }, { id: "platform", label: "Platform" }]}
+          tabs={[{ id: "all", label: "All Feedback" }, { id: "courses", label: "Courses" }, { id: "trainers", label: "Trainers" }]}
           active={tab}
           onChange={(t) => setTab(t)}
         />
-        <DataTable
-          columns={["Course / Training", "Average Rating", "Feedback Count", "Status"]}
-          rows={FEEDBACK_ROWS}
-          onView={() => setView("details")}
-          viewLabel="View"
-        />
-        <div className="admin-pagination">
-          <span>Showing 1 to 5 of 12 courses</span>
-          <div className="admin-pag-btns">
-            {[1,2,3].map(n=><button key={n} className={`admin-pag-btn ${n===1?"active":""}`}>{n}</button>)}
-          </div>
-        </div>
+        <ListState loading={fb.loading} error={fb.error} onRetry={fb.reload} empty={shown.length || fb.loading || fb.error ? null : "No feedback in scope."}>
+          <DataTable
+            columns={["Target", "Responses", "Average", "Batch"]}
+            rows={shown.map((a)=>[a.targetType, String(a.count), `${Number(a.average).toFixed(1)} / 5`, String(a.batch || "—")])}
+            onView={(i) => { setSelected(shown[i]); setView("details"); }}
+            viewLabel="View"
+          />
+        </ListState>
+        <p className="muted">{fb.data?.privacy || ""}</p>
       </div>
     </Shell>
   );
 }
 
-function FeedbackDetailsPage({ onBack, onTrends }) {
+function FeedbackDetailsPage({ aggregate, responses, privacy, onBack }) {
+  const rows = (responses || []).filter((r) => !aggregate || String(r.target) === String(aggregate.target));
+  const [detail, setDetail] = useState(null);
+  return (
+    <Shell eyebrow="" title="" desc="">
+      <Breadcrumb items={[{ label: "Feedback Overview" }, { label: "Feedback Details" }]} />
+      <h1 className="admin-xp-title">Feedback Details</h1>
+      <p className="admin-xp-desc">{aggregate ? `${aggregate.targetType} · ${aggregate.count} responses · avg ${Number(aggregate.average).toFixed(1)} / 5` : "Identified participant responses."}</p>
+      <div className="admin-panel">
+        <ListState loading={false} error="" empty={rows.length ? null : "No identified responses in scope."}>
+          <DataTable columns={["Participant","Rating","Comment","Date"]} rows={rows.slice(0,20).map((r)=>[r.trainee?.name || r.trainee || "—",`${r.rating} / 5`,(r.comment || "").slice(0,80),fmtDate(r.createdAt)])} onView={(i)=>setDetail(rows[i])} viewLabel="View"/>
+        </ListState>
+        <p className="muted">{privacy || ""}</p>
+        <div className="admin-form-footer"><button className="button button-secondary" onClick={onBack}><ArrowLeft size={14} /> Back</button></div>
+      </div>
+      {detail && <DetailModal title={detail.trainee?.name || "Response"} subtitle={`${detail.rating} / 5 · ${fmtDate(detail.createdAt)}`} onClose={()=>setDetail(null)}><p>{detail.comment || "No comment added."}</p></DetailModal>}
+    </Shell>
+  );
+}
+
+function FeedbackLegacyDetails({ onBack, onTrends }) {
   const [tab, setTab] = useState("all");
   const REVIEWS = [
     ["A", "Asha Sharma", "★★★★★", "Very well structured content. Helped me understand radar data interpretation clearly.", "15 Sep 2026"],
@@ -1280,10 +1321,7 @@ function FeedbackDetailsPage({ onBack, onTrends }) {
     ["P", "Priya Singh", "★★★★", "Useful content, but would be great to have more real-world case studies.", "13 Sep 2026"],
   ];
   return (
-    <Shell eyebrow="" title="" desc="">
-      <Breadcrumb items={[{ label: "Feedback Overview" }, { label: "Feedback Details" }]} />
-      <h1 className="admin-xp-title">Feedback Details</h1>
-      <p className="admin-xp-desc">View detailed feedback, ratings and comments for the selected course.</p>
+    <Shell eyebrow="" title="Feedback sample" desc="Static sample kept for layout reference.">
       <div className="feedback-detail-header">
         <div className="feedback-course-card">
           <div className="feedback-course-icon"><Megaphone size={22} color="#3b82f6" /></div>
@@ -1523,42 +1561,31 @@ function ImprovementActionPage({ onBack }) {
 function KpiRowFull({ items }) { return <KpiRow items={items} />; }
 
 function CapabilityMapPage() {
-  const CAP_COMPETENCIES = ["Radar Interp.", "Climate Anl.", "NWP", "Forecasting", "Instrum.", "Hydromet."];
-  const CAP_DEPTS = [
-    { name: "Forecasting Div.", values: [82, 65, 78, 90, 45, 60] },
-    { name: "R&D", values: [70, 88, 72, 65, 55, 75] },
-    { name: "Regional Centres", values: [60, 55, 68, 72, 80, 50] },
-    { name: "Observatories", values: [45, 40, 55, 48, 90, 62] },
-    { name: "Administration", values: [30, 25, 35, 42, 38, 30] },
-  ];
-  function capColor(v) {
-    if (v >= 80) return { bg: "#dcfce7", color: "#15803d" };
-    if (v >= 60) return { bg: "#fef9c3", color: "#a16207" };
-    if (v >= 40) return { bg: "#ffedd5", color: "#c2410c" };
-    return { bg: "#fee2e2", color: "#b91c1c" };
-  }
+  const capability = useApi(() => part3.get("/capability"), []);
+  const [cellDetail, setCellDetail] = useState(null);
+  const coverage = capability.data?.coverage || [];
   return (
-    <Shell eyebrow="CAPABILITY" title="Organizational Capability Map" desc="View current competency coverage across all departments and identify capability gaps.">
-      <KpiRow items={[[Users,"42","Require Training","","#f59e0b"],[CheckCircle2,"28","Verified","This quarter","#10b981"],[Activity,"64%","Overall Coverage","+3% MoM","#3b82f6"],[Bell,"16","Open Gaps","Critical areas","#ef4444"]]} />
+    <Shell eyebrow="CAPABILITY" title="Organizational Capability Map" desc="Coverage derived from reviewed evidence. Missing evidence is NOT_ASSESSED, not zero ability.">
+      <KpiRow items={[[Users,String(coverage.filter((c)=>(c.belowRequiredCount||0) > 0).length || "—"),"Competencies below requirement","","#f59e0b"],[CheckCircle2,String(capability.data?.reviewedTrainerCount ?? capability.data?.pendingReviewCount ?? "—"),"Reviewed trainers / pending","","#10b981"],[Activity,String(capability.data?.label || "Coverage"),"Label","","#3b82f6"],[Bell,String(capability.data?.pendingReviewCount ?? "—"),"Pending reviews","","#ef4444"]]} />
       <div className="admin-panel">
-        <div className="admin-cap-controls">
-          <select className="admin-filter-select"><option>All Departments</option>{CAP_DEPTS.map(d=><option key={d.name}>{d.name}</option>)}</select>
-          <select className="admin-filter-select"><option>At or Above Required Level</option><option>Below Required Level</option></select>
-        </div>
-        <div className="admin-heatmap-table" style={{ marginTop: "1rem" }}>
-          <div className="admin-heatmap-header"><div className="admin-heatmap-dept-col">Department</div>{CAP_COMPETENCIES.map(c=><div key={c} className="admin-heatmap-comp-header">{c}</div>)}</div>
-          {CAP_DEPTS.map(dept=>(
-            <div key={dept.name} className="admin-heatmap-row">
-              <div className="admin-heatmap-dept-col">{dept.name}</div>
-              {dept.values.map((v,i)=>{const{bg,color}=capColor(v);return<div key={i} className="admin-heatmap-cell" style={{background:bg,color}}>{v}%</div>;})}
+        <ListState loading={capability.loading} error={capability.error} onRetry={capability.reload} empty={coverage.length || capability.loading || capability.error ? null : "No capability coverage recorded."}>
+          <div className="admin-data-table">
+            <div className="admin-table-head" style={{ gridTemplateColumns: "2fr 1.5fr 0.7fr 0.8fr 0.8fr 0.8fr 0.8fr" }}>
+              <span>Competency</span><span>Role</span><span>Required</span><span>Meeting</span><span>Below</span><span>Not assessed</span><span>Action</span>
             </div>
-          ))}
-        </div>
-        <div className="admin-cap-charts">
-          <div className="admin-cap-chart-card"><h4>Required vs. Verified Competency</h4>{[["Required staff",248],["Verified staff",162]].map(([l,n])=>(<div key={l} className="admin-cap-bar-row"><span>{l}</span><div className="admin-cap-bar-bg"><div className="admin-cap-bar-fill" style={{width:`${(n/248)*100}%`,background:l.includes("Verified")?"#10b981":"#3b82f6"}}/></div><span className="admin-cap-bar-val">{n}</span></div>))}</div>
-          <div className="admin-cap-chart-card"><h4>Department-wise Overall Coverage</h4>{CAP_DEPTS.map(d=>{const avg=Math.round(d.values.reduce((a,b)=>a+b,0)/d.values.length);const{bg,color}=capColor(avg);return(<div key={d.name} className="admin-cap-bar-row"><span>{d.name}</span><div className="admin-cap-bar-bg"><div className="admin-cap-bar-fill" style={{width:`${avg}%`,background:color}}/></div><span className="admin-cap-bar-val" style={{color}}>{avg}%</span></div>);})}</div>
-        </div>
+            {coverage.map((c, i) => (
+              <div key={i} className="admin-table-row" style={{ gridTemplateColumns: "2fr 1.5fr 0.7fr 0.8fr 0.8fr 0.8fr 0.8fr" }}>
+                <span>{c.competency?.name || "—"}</span><span>{c.jobRole?.title || "—"}</span>
+                <span className="admin-level-badge">{c.requiredLevel != null ? `L${c.requiredLevel}` : "—"}</span>
+                <span>{c.meetingCount ?? "—"}</span><span>{c.belowRequiredCount ?? "—"}</span><span>{c.notAssessedCount ?? "—"}</span>
+                <span className="admin-table-actions"><button className="admin-action-btn admin-action-view" onClick={() => setCellDetail(c)}><Eye size={12} /> View</button></span>
+              </div>
+            ))}
+          </div>
+        </ListState>
+        <p className="muted">Application-level indicator over stored records, never a forecast. Full analytics stay in Organizational Capability.</p>
       </div>
+      {cellDetail && <DetailModal title={cellDetail.competency?.name || "Coverage detail"} subtitle={`${cellDetail.jobRole?.title || ""} · Required L${cellDetail.requiredLevel}`} onClose={() => setCellDetail(null)} wide actions={<Link className="button button-secondary" to="/admin/organizational-capability">Open capability map</Link>}><DetailRows rows={[["Denominator", String(cellDetail.denominator ?? "—")],["Meeting", String(cellDetail.meetingCount ?? "—")],["Below required", String(cellDetail.belowRequiredCount ?? "—")],["Not assessed", String(cellDetail.notAssessedCount ?? "—")],["Not comparable", String(cellDetail.notComparableCount ?? "—")],["Review due", String(cellDetail.reviewDueCount ?? "—")],["Pending demand", String(cellDetail.pendingTrainingDemand ?? "—")],["Recommended", cellDetail.recommendedAction || "—"]]} /></DetailModal>}
     </Shell>
   );
 }
@@ -1580,16 +1607,31 @@ function CompetencyDetails2({ onBack }) {
 
 function CompetencyFrameworkPage() {
   const [activeTab, setActiveTab] = useState("all");
-  const [viewing, setViewing] = useState(false);
-  const filtered = activeTab==="all"?COMP_ROWS:activeTab==="core"?COMP_ROWS.filter(r=>r[1].includes("Core")):activeTab==="technical"?COMP_ROWS.filter(r=>r[1].includes("Technical")):COMP_ROWS.filter(r=>r[1].includes("Support"));
-  if (viewing) return <CompetencyDetails2 onBack={()=>setViewing(false)}/>;
+  const [viewing, setViewing] = useState(null);
+  const [query, setQuery] = useState("");
+  const toast = useToast();
+  const list = useApi(() => part2.get("/competencies", { limit: 50 }), []);
+  const items = list.data?.items || list.data || [];
+  const filtered = items.filter((c) => (activeTab === "all" || (c.domain || "").toLowerCase().includes(activeTab === "core" ? "core" : activeTab)) && (!query || `${c.code} ${c.name}`.toLowerCase().includes(query.toLowerCase())));
+  if (viewing) {
+    const row = viewing;
+    return (
+      <Shell eyebrow={<Breadcrumb items={[{label:"Competency Framework", link:"/admin/competencies"},{label: row.name}]}/>} title={row.name} badge={row.status} desc={row.description} action={<button className="button button-secondary" onClick={()=>setViewing(null)}><ArrowLeft size={14}/> Back to list</button>}>
+        <Tabs tabs={[{id:"overview",label:"Overview"},{id:"levels",label:"Levels & Criteria"}]} active="overview" onChange={()=>{}}/>
+        <div className="detail-grid"><div className="admin-panel"><h3>Basic Information</h3><DetailRows rows={[["Code", row.code || "—"],["Domain", row.domain || "—"],["Version", row.version != null ? `v${row.version}` : "—"],["Status", row.status || "—"]]} /><h3 style={{marginTop:"1.5rem"}}>Assessment Methods</h3><div className="admin-method-chips">{["MCQ assessment","Practical assessment","Evidence submission","Expert review"].map(m=>(<span key={m} className="admin-method-chip">{m}</span>))}</div></div><div className="admin-panel"><h3>Competency Levels</h3>{(row.levels||[]).map((l)=>(<div key={l.value} className="admin-level-rule"><span className="admin-level-badge-lg">L{l.value}</span><div><strong>{l.label}</strong><small>{l.definition}</small></div></div>))}</div></div>
+        {row.status === "DRAFT" && <div className="admin-panel"><button className="button button-primary" disabled={list.busy} onClick={() => list.run(() => part2.post(`/competencies/${row._id}/publish`, {}), toast, "Competency published for course mapping")}>Publish competency</button></div>}
+      </Shell>
+    );
+  }
   return (
-    <Shell eyebrow="CAPABILITY" title="Competency Framework" desc="Define and manage competencies, proficiency levels and assessment criteria." action={<button className="button button-primary"><Plus size={14}/> Add Competency</button>}>
-      <KpiRow items={[[Fingerprint,"12","Total Competencies","3 categories","#3b82f6"],[CheckCircle2,"6","Core Meteorological","","#10b981"],[Activity,"3","Technical","","#8b5cf6"],[Globe,"3","Support","","#f59e0b"]]}/>
+    <Shell eyebrow="CAPABILITY" title="Competency Framework" desc="Versioned competencies and plain-language levels. Creation stays in Competencies; publishing is audited." action={<Link className="button button-primary" to="/admin/competencies">Open Competencies</Link>}>
+      <KpiRow items={[[Fingerprint,String(items.length),"Total Competencies","","#3b82f6"],[CheckCircle2,String(items.filter((c)=>c.status==="PUBLISHED").length),"Published","","#10b981"],[Activity,String(items.filter((c)=>c.status==="DRAFT").length),"Drafts","","#8b5cf6"],[Globe,String(new Set(items.map((c)=>String(c.domain))).size),"Domains","","#f59e0b"]]}/>
       <div className="admin-panel">
-        <Tabs tabs={[{id:"all",label:"All Competencies",count:12},{id:"core",label:"Core Meteorological",count:6},{id:"technical",label:"Technical",count:3},{id:"support",label:"Support",count:3}]} active={activeTab} onChange={setActiveTab}/>
-        <SearchFilter placeholder="Search competencies..."/>
-        <DataTable columns={["Competency Name","Category","Description","Levels","Mapped Roles","Status"]} rows={filtered} onView={()=>setViewing(true)} viewLabel="View"/>
+        <Tabs tabs={[{id:"all",label:"All Competencies",count:items.length},{id:"core",label:"Core",count:items.filter((c)=>(c.domain||"").toLowerCase().includes("core")).length},{id:"technical",label:"Technical",count:items.filter((c)=>(c.domain||"").toLowerCase().includes("tech")).length}]} active={activeTab} onChange={setActiveTab}/>
+        <SearchFilter placeholder="Search competencies..." value={query} onChange={setQuery}/>
+        <ListState loading={list.loading} error={list.error} onRetry={list.reload} empty={filtered.length || list.loading || list.error ? null : "No competencies recorded."}>
+          <DataTable columns={["Competency Name","Code","Domain","Levels","Status"]} rows={filtered.map((c)=>[c.name,c.code,c.domain,(c.levels||[]).map((l)=>`L${l.value}`).join(" · "),c.status])} onView={(i)=>setViewing(filtered[i])} viewLabel="View"/>
+        </ListState>
       </div>
     </Shell>
   );
@@ -1597,23 +1639,141 @@ function CompetencyFrameworkPage() {
 
 function RoleMappingPage() {
   const [params]=useSearchParams();const stage=params.get("screen");
+  const [selected, setSelected] = useState(null);
+  const roles = useApi(() => part2.get("/job-roles"), []);
+  const competencies = useApi(() => part2.get("/competencies", { limit: 50 }), [selected?._id]);
+  const requirements = useApi(() => (selected?._id ? part2.get(`/job-roles/${selected._id}/requirements`) : Promise.resolve([])), [selected?._id]);
+  const roleRows = Array.isArray(roles.data) ? roles.data : [];
+  const reqRows = Array.isArray(requirements.data) ? requirements.data : [];
   if(stage==="edit")return<Shell eyebrow="Role Mapping" title="Edit Role Mapping" desc="Radar Interpretation"><div className="admin-panel"><div className="admin-form-grid">{[["Role","select",["Scientist B","Scientist C","Meteorologist"]],["Current Required Level","text","L2 – Developing"],["New Required Level","select",["L1 – Basic","L2 – Developing","L3 – Proficient","L4 – Advanced"]],["Importance","select",["Low","Medium","High","Critical"]]].map(([label,type,val])=>(<label key={label} className="admin-form-label">{label}{type==="select"?<select className="admin-form-select">{val.map(o=><option key={o}>{o}</option>)}</select>:<input className="admin-form-input" defaultValue={val} readOnly/>}</label>))}</div><div className="admin-form-footer"><Link className="button button-secondary" to="/admin/job-role-requirements">Cancel</Link><Link className="button button-primary" to="/admin/job-role-requirements?screen=confirm">Review Changes →</Link></div></div></Shell>;
   if(stage==="confirm")return<Shell title="Confirm Role Mapping Changes"><div className="admin-panel"><div className="admin-change-table"><b>Role</b><b>Current</b><b>New</b><b>Old Importance</b><b>New Importance</b><span>Scientist B</span><span>L2</span><span className="admin-badge admin-badge-active">L3</span><span>Medium</span><span className="admin-badge admin-badge-active">High</span></div><div className="admin-form-footer"><Link className="button button-secondary" to="/admin/job-role-requirements?screen=edit">← Back</Link><Link className="button button-primary" to="/admin/job-role-requirements?screen=success">Confirm & Update</Link></div></div></Shell>;
   if(stage==="success")return<Shell title="Role Mapping Updated"><div className="admin-panel admin-success-card"><CheckCircle2 size={48} color="#10b981"/><h2>Updated Successfully</h2><Link className="button button-primary" to="/admin/job-role-requirements">View Updated Role Mapping</Link></div></Shell>;
   return(
-    <Shell eyebrow="CAPABILITY" title="Role Mapping" desc="View and manage required competency levels for each role." action={<Link className="button button-primary" to="?screen=edit"><Plus size={14}/> Add Role Mapping</Link>}>
-      <KpiRow items={[[Users,"6","Roles Mapped","","#3b82f6"],[Target,"40","Total Required","","#8b5cf6"],[CheckCircle2,"24","Currently Verified","","#10b981"],[Bell,"16","Overall Gap","","#ef4444"]]}/>
-      <div className="admin-panel"><SearchFilter placeholder="Search by role..."/><DataTable columns={["Role","Department","Required Level","Current Coverage","Gap","Status"]} rows={[["Scientist B","Forecasting Division","L3 – Proficient","69%","6 staff","Active"],["Scientist C","R&D","L3 – Proficient","49%","12 staff","Active"],["Meteorologist","Regional Centre","L3 – Proficient","88%","2 staff","Active"],["Scientific Assistant","Observations","L2 – Developing","72%","8 staff","Active"]]} onEdit={()=>{}} editLabel="Edit"/></div>
+    <Shell eyebrow="CAPABILITY" title="Role Mapping" desc="Proposed professional-role requirements, separate from access roles. Role changes happen only through TTT verification." action={<Link className="button button-primary" to="/admin/job-role-requirements">Open Role Mapping</Link>}>
+      <KpiRow items={[[Users,String(roleRows.length),"Roles Mapped","","#3b82f6"],[Target,String(reqRows.length),"Requirements (selected role)","","#8b5cf6"],[CheckCircle2,String((competencies.data?.items || competencies.data || []).filter((c)=>c.status==="PUBLISHED").length),"Published competencies","","#10b981"],[Bell,String(roleRows.filter((r)=>r.status!=="ACTIVE").length),"Non-active roles","","#ef4444"]]}/>
+      <div className="admin-panel">
+        <ListState loading={roles.loading} error={roles.error} onRetry={roles.reload} empty={roleRows.length || roles.loading || roles.error ? null : "No professional roles recorded."}>
+          <DataTable columns={["Role","Description","Status"]} rows={roleRows.map((r)=>[r.title,r.description || "—",r.status || "—"])} onView={(i)=>setSelected(roleRows[i])} viewLabel="Requirements"/>
+        </ListState>
+      </div>
+      {selected && <DetailModal title={selected.title} subtitle="Versioned requirements" onClose={()=>setSelected(null)} wide actions={<Link className="button button-secondary" to="/admin/job-role-requirements">Open full workspace</Link>}>
+        <ListState loading={requirements.loading} error={requirements.error} onRetry={requirements.reload} empty={reqRows.length || requirements.loading || requirements.error ? null : "No requirements mapped to this role."}>
+          <DataTable columns={["Competency","Level","Version"]} rows={reqRows.map((r)=>[r.competency?.name || r.competency,`L${r.requiredLevel}`,`v${r.version}`])}/>
+        </ListState>
+        <p className="muted">Requirements are versioned application configuration, not IMD standards. Adding or editing stays in Role Mapping.</p>
+      </DetailModal>}
     </Shell>
   );
 }
 
-function SkillGapPage(){return<Shell eyebrow="CAPABILITY" title="Skill Gap Analysis" desc="Identify gaps between required and current workforce capability."><KpiRow items={[[AlertTriangle,"64","Total Gaps","","#f59e0b"],[Users,"128","Staff Affected","","#ef4444"],[Zap,"4","Critical Gaps","","#ef4444"],[TrendingUp,"12%","Gap Reduction MoM","","#10b981"]]}/><div className="admin-panel"><SearchFilter placeholder="Search..."/><DataTable columns={["Competency","Department","Required Level","Avg. Current Level","Gap Size","Priority"]} rows={[["Radar Interpretation","Forecasting Division","L3","L2.1","28 staff","Critical"],["Climate Analysis","R&D Division","L3","L2.3","22 staff","High"],["NWP","Regional Centres","L3","L2.0","18 staff","High"],["Weather Forecasting","Observatories","L2","L1.5","24 staff","High"]]}/></div></Shell>;}
-function TrainingDemandPanel(){return<Shell eyebrow="TRAINING" title="Training Demand Overview" desc="View recorded training demand. This is an application-level indicator, not a workforce forecast." action={<button className="button button-primary"><Plus size={14}/> Create Training Plan</button>}><KpiRow items={[[Users,"128","People Need Training","","#f59e0b"],[BookOpen,"8","Competencies with Demand","","#3b82f6"],[AlertTriangle,"4","High Priority","","#ef4444"],[UserCheck,"12","Available Trainers","","#10b981"]]}/><div className="admin-panel"><DataTable columns={["Competency","Category","Required Level","People Needing Training","Priority","Trainers Available"]} rows={[["Radar Interpretation","Core","L3","28","High","3"],["Climate Analysis","Core","L3","22","High","2"],["NWP","Technical","L3","18","Medium","4"],["Weather Forecasting","Core","L2","24","High","5"]]}/></div></Shell>;}
-function TrainerPoolPage(){return<Shell eyebrow="TRAINERS" title="Trainer Pool" desc="Manage verified trainers, their competencies and availability." action={<button className="button button-primary"><Plus size={14}/> Add Trainer</button>}><KpiRow items={[[UserCheck,"24","Verified Trainers","","#10b981"],[Activity,"6","TTT In-Progress","","#8b5cf6"],[Clock3,"18","Active Assignments","","#3b82f6"],[AlertTriangle,"4","Verifications Expiring","","#f59e0b"]]}/><div className="admin-panel"><SearchFilter placeholder="Search trainers..."/><DataTable columns={["Trainer Name","Expertise","Current Load","Verified Competencies","Suitability","Status"]} rows={[["Dr. R. Krishnamurthy","Radar Interpretation, NWP","2/4 batches","3 competencies","High (92 pts)","Verified"],["Prof. S. Mehta","Climate Analysis, Forecasting","1/4 batches","4 competencies","High (88 pts)","Verified"],["Mr. A. Bose","Instrumentation, Hydromet.","3/4 batches","2 competencies","Medium (74 pts)","Verified"]]} onView={()=>{}} viewLabel="View"/></div></Shell>;}
-function CoursesPage(){return<Shell eyebrow="TRAINING" title="Course Management" desc="View, manage and monitor all training courses." action={<button className="button button-primary"><Plus size={14}/> Create Course</button>}><KpiRow items={[[Library,"48","Total Courses","","#3b82f6"],[BookOpen,"18","Active Courses","","#10b981"],[Users,"1,284","Total Enrolments","","#8b5cf6"],[Award,"836","Completions","","#f59e0b"]]}/><div className="admin-panel"><DataTable columns={["Course Name","Competency","Level","Trainer","Enrolled","Completion Rate","Status"]} rows={[["Basic Radar Operations","Radar Interpretation","L1","Dr. R. Krishnamurthy","24","88%","Active"],["Radar Pattern Interpretation","Radar Interpretation","L2","Dr. K. Reddy","18","72%","Active"],["Climate Analysis Fundamentals","Climate Analysis","L1","Prof. S. Mehta","32","91%","Active"]]} onView={()=>{}} viewLabel="View"/></div></Shell>;}
-function AssessmentsPage(){return<Shell eyebrow="TRAINING" title="Assessments" desc="Manage assessment instruments. Scores are evidence only." action={<button className="button button-primary"><Plus size={14}/> Create Assessment</button>}><div className="admin-info-callout"><ShieldCheck size={16} color="#3b82f6"/>MCQ scoring is server-side. Assessment scores are evidence — competency decisions require authorized human review.</div><KpiRow items={[[ClipboardCheck,"36","Total Assessments","","#3b82f6"],[Users,"284","Submissions","","#10b981"],[Activity,"76%","Avg. Pass Rate","","#8b5cf6"],[AlertTriangle,"8","Pending Review","","#f59e0b"]]}/><div className="admin-panel"><DataTable columns={["Assessment Name","Competency","Level","Type","Submissions","Pass Rate","Status"]} rows={[["Radar L1 Knowledge Test","Radar Interpretation","L1","MCQ","48","88%","Active"],["Radar L2 Practical","Radar Interpretation","L2","Practical","32","75%","Active"],["Climate Analysis MCQ","Climate Analysis","L2","MCQ","28","82%","Active"]]} onView={()=>{}} viewLabel="View"/></div></Shell>;}
-function CertificationsPage(){return<Shell eyebrow="TRAINING" title="Certifications" desc="A certificate means course completion, not verified competency."><div className="admin-info-callout"><Info size={16} color="#3b82f6"/>Competency is established only by an explicit, authorized human decision.</div><KpiRow items={[[Award,"836","Certificates Issued","This year","#f59e0b"],[FileCheck2,"124","Credentials Active","","#10b981"],[Clock3,"18","Expiring Soon","Within 60 days","#f59e0b"],[AlertTriangle,"6","Revoked","","#ef4444"]]}/><div className="admin-panel"><DataTable columns={["Employee","Certificate","Course","Issued Date","Expiry","Status"]} rows={[["Asha Sharma","Radar L1 Completion","Basic Radar Operations","Mar 2026","Mar 2028","Active"],["Vikram Nair","Climate Analysis L2","Climate Analysis Fundamentals","Feb 2026","Feb 2028","Active"]]} onView={()=>{}} viewLabel="View"/></div></Shell>;}
+function SkillGapPage(){
+  const capability = useApi(() => part3.get("/capability"), []);
+  const demand = useApi(() => part3.get("/training-demand"), []);
+  const [detail, setDetail] = useState(null);
+  const coverage = capability.data?.coverage || [];
+  const demandRows = demand.data?.rows || [];
+  const gapRows = coverage.filter((c) => (c.belowRequiredCount || 0) > 0 || (c.notAssessedCount || 0) > 0);
+  return<Shell eyebrow="CAPABILITY" title="Skill Gap Analysis" desc="Coverage gaps derived from reviewed evidence. NOT_ASSESSED is kept separate from below-required."><KpiRow items={[[AlertTriangle,String(gapRows.length),"Competencies with gaps","","#f59e0b"],[Users,String(demand.data?.summary?.totalPeopleNeedingDevelopment ?? "—"),"People needing development","","#ef4444"],[Zap,String(demand.data?.summary?.competenciesWithTrainerCapacityGap ?? "—"),"Trainer capacity gaps","","#ef4444"],[TrendingUp,String(demand.data?.summary?.competenciesWithDemand ?? "—"),"Competencies with demand","","#10b981"]]}/><div className="admin-panel">
+    <ListState loading={capability.loading} error={capability.error} onRetry={capability.reload} empty={gapRows.length || capability.loading || capability.error ? null : "No coverage gaps recorded."}>
+      <DataTable columns={["Competency","Role","Required","Meeting","Below","Not assessed","Action"]} rows={gapRows.map((c)=>[c.competency?.name || "—",c.jobRole?.title || "—",c.requiredLevel != null ? `L${c.requiredLevel}` : "—",String(c.meetingCount ?? "—"),String(c.belowRequiredCount ?? "—"),String(c.notAssessedCount ?? "—"),c.trainerCapacityGap ? "Capacity gap" : (c.recommendedAction || "Review")])} onView={(i)=>setDetail(gapRows[i])} viewLabel="View"/>
+    </ListState></div>
+    {detail && <DetailModal title={detail.competency?.name || "Coverage detail"} subtitle={`${detail.jobRole?.title || ""} · Required L${detail.requiredLevel}`} onClose={()=>setDetail(null)} wide actions={<Link className="button button-secondary" to="/admin/training-demand">Open training demand</Link>}><DetailRows rows={[["Denominator", String(detail.denominator ?? "—")],["Meeting", String(detail.meetingCount ?? "—")],["Below required", String(detail.belowRequiredCount ?? "—")],["Not assessed", String(detail.notAssessedCount ?? "—")],["Not comparable", String(detail.notComparableCount ?? "—")],["Review due", String(detail.reviewDueCount ?? "—")],["Pending demand", String(detail.pendingTrainingDemand ?? "—")],["Available trainers", detail.availableTrainerCount ?? "—"],["Coverage", detail.coveragePercent != null ? `${detail.coveragePercent}%` : "—"],["Recommended", (demandRows.find((r)=>String(r.competency?._id)===String(detail.competency?._id))?.recommendedAction) || detail.recommendedAction || "—"]]} /><p className="muted">Derived indicator only, never a forecast.</p></DetailModal>}
+  </Shell>;
+}
+function TrainingDemandPanel(){
+  const demand = useApi(() => part3.get("/training-demand"), []);
+  const [detail, setDetail] = useState(null);
+  const rows = demand.data?.rows || [];
+  const summary = demand.data?.summary || {};
+  return<Shell eyebrow="TRAINING" title="Training Demand Overview" desc={demand.data?.definition || "Recorded training demand. This is an application-level indicator, not a workforce forecast."} action={<Link className="button button-primary" to="/admin/training-demand">Open Training Demand</Link>}><KpiRow items={[[Users,String(summary.totalPeopleNeedingDevelopment ?? "—"),"People Need Training","","#f59e0b"],[BookOpen,String(summary.competenciesWithDemand ?? "—"),"Competencies with Demand","","#3b82f6"],[AlertTriangle,String(summary.competenciesWithTrainerCapacityGap ?? "—"),"Capacity gaps","","#ef4444"],[UserCheck,String(rows.reduce((n,r)=>n+(r.availableTrainers ?? 0),0)),"Available Trainers","","#10b981"]]}/><div className="admin-panel">
+    <ListState loading={demand.loading} error={demand.error} onRetry={demand.reload} empty={rows.length || demand.loading || demand.error ? null : "No training demand recorded."}>
+      <DataTable columns={["Competency","Role","Required","Gap","Eligible trainers","Capacity","Action"]} rows={rows.map((r)=>[r.competency?.name,r.jobRole?.title,`L${r.requiredLevel}`,String(r.gapHeadcount ?? r.belowRequiredCount ?? "—"),String(r.eligibleTrainers ?? "—"),r.trainerCapacityGap ? "Gap" : "Covered",r.recommendedAction || "—"])} onView={(i)=>setDetail(rows[i])} viewLabel="View"/>
+    </ListState></div>
+    {detail && <DetailModal title={detail.competency?.name} subtitle={`${detail.jobRole?.title || ""} · Required L${detail.requiredLevel}`} onClose={()=>setDetail(null)} wide actions={<Link className="button button-secondary" to="/admin/trainer-capacity">Open trainer capacity</Link>}><DetailRows rows={[["Required headcount", String(detail.requiredHeadcount ?? "—")],["Verified headcount", String(detail.verifiedHeadcount ?? "—")],["Gap headcount", String(detail.gapHeadcount ?? "—")],["Below required", String(detail.belowRequiredCount ?? "—")],["Not assessed", String(detail.notAssessedCount ?? "—")],["Pending needs", String(detail.pendingNeeds ?? "—")],["Eligible trainers", String(detail.eligibleTrainers ?? "—")],["Available trainers", detail.availableTrainers ?? "—"],["Capacity gap", detail.trainerCapacityGap ? "Yes" : "No"],["Recommended", detail.recommendedAction || "—"]]} /></DetailModal>}
+  </Shell>;
+}
+function TrainerPoolPage(){
+  const toast = useToast();
+  const expertise = useApi(() => part3.get("/expertise"), []);
+  const [detail, setDetail] = useState(null);
+  const [review, setReview] = useState({ status: "REVIEWED", approvedLevel: "", reason: "", source: "" });
+  const rows = Array.isArray(expertise.data) ? expertise.data : [];
+  const verified = rows.filter((e)=>e.status === "REVIEWED" || e.status === "APPROVED");
+  const submitReview = async () => {
+    if (!detail || !review.reason || !review.source || (review.status === "REVIEWED" && !review.approvedLevel)) return;
+    await expertise.run(() => part3.post(`/expertise/${detail._id}/review`, { status: review.status, approvedLevel: review.status === "REVIEWED" ? Number(review.approvedLevel) : null, reason: review.reason, source: review.source }), toast, "Expertise review recorded");
+    setDetail(null);
+    setReview({ status: "REVIEWED", approvedLevel: "", reason: "", source: "" });
+  };
+  return<Shell eyebrow="TRAINERS" title="Trainer Pool" desc="Reviewed expertise records. Expertise stays self-declared until a reasoned coordinator review." action={<Link className="button button-primary" to="/admin/trainer-discovery">Open Trainer Discovery</Link>}><KpiRow items={[[UserCheck,String(verified.length),"Reviewed expertise","","#10b981"],[Activity,String(rows.filter((e)=>e.status==="PENDING_REVIEW").length),"Pending review","","#8b5cf6"],[Clock3,String(rows.length),"Total records","","#3b82f6"],[ShieldCheck,String(new Set(rows.map((e)=>e.trainer?._id || e.trainer)).size),"Trainers","","#f59e0b"]]}/><div className="admin-panel">
+    <ListState loading={expertise.loading} error={expertise.error} onRetry={expertise.reload} empty={rows.length || expertise.loading || expertise.error ? null : "No expertise records yet."}>
+      <DataTable columns={["Trainer","Competency","Claimed","Reviewed","Status"]} rows={rows.map((e)=>[e.trainer?.name || "—",e.competency?.name || "—",e.claimedLevel != null ? `L${e.claimedLevel}` : "—",e.approvedLevel != null ? `L${e.approvedLevel}` : "—",e.status])} onView={(i)=>{setDetail(rows[i]); setReview({ status: "REVIEWED", approvedLevel: rows[i].approvedLevel || "", reason: "", source: "" });}} viewLabel="Review"/>
+    </ListState></div>
+    {detail && <DetailModal title={detail.trainer?.name} subtitle={`${detail.competency?.name || ""} · claimed L${detail.claimedLevel}`} onClose={()=>setDetail(null)} wide actions={<button className="button button-primary" disabled={expertise.busy || !review.reason || !review.source || (review.status === "REVIEWED" && !review.approvedLevel)} onClick={submitReview}>Record review</button>}><DetailRows rows={[["Status", detail.status],["Reviewed level", detail.approvedLevel != null ? `L${detail.approvedLevel}` : "—"],["Review basis", detail.reviewBasis || "—"],["Experience", `${detail.relevantExperienceYears ?? "—"} yrs relevant · ${detail.teachingYears ?? "—"} yrs teaching`],["Reviewed by", detail.reviewedBy?.name || "—"],["Reviewed at", fmtDate(detail.reviewedAt, true)]]} />
+      <label className="admin-form-label">Decision<select className="admin-form-select" value={review.status} onChange={(e)=>setReview({...review,status:e.target.value})}><option value="REVIEWED">Reviewed</option><option value="REJECTED">Rejected</option></select></label>
+      {review.status === "REVIEWED" && <label className="admin-form-label">Approved level *<select className="admin-form-select" value={review.approvedLevel} onChange={(e)=>setReview({...review,approvedLevel:e.target.value})}><option value="">Select level</option>{[1,2,3,4,5].map((l)=><option key={l} value={l}>L{l}</option>)}</select></label>}
+      <label className="admin-form-label">Reason *<textarea className="admin-remarks-input" value={review.reason} onChange={(e)=>setReview({...review,reason:e.target.value})} /></label>
+      <label className="admin-form-label">Source *<input className="admin-form-input" value={review.source} onChange={(e)=>setReview({...review,source:e.target.value})} /></label>
+      <p className="muted">A review never changes an access role. Promotion happens only through TTT verification.</p></DetailModal>}
+  </Shell>;
+}
+function CoursesPage(){
+  const [query, setQuery] = useState("");
+  const [detail, setDetail] = useState(null);
+  const list = useApi(() => part2.get("/courses"), []);
+  const rows = (list.data?.items || list.data || []).filter((c) => !query || `${c.title} ${c.code}`.toLowerCase().includes(query.toLowerCase()));
+  return<Shell eyebrow="TRAINING" title="Course Management" desc="Published programmes and drafts. Creation, editing and publish/archive stay in Courses." action={<Link className="button button-primary" to="/admin/courses">Open Courses</Link>}><KpiRow items={[[Library,String(rows.length),"Courses in scope","","#3b82f6"],[BookOpen,String(rows.filter((c)=>c.status==="PUBLISHED").length),"Published","","#10b981"],[FileText,String(rows.filter((c)=>c.status==="DRAFT").length),"Drafts","","#8b5cf6"],[Award,String(rows.filter((c)=>c.status==="ARCHIVED").length),"Archived","","#f59e0b"]]}/><div className="admin-panel"><SearchFilter placeholder="Search courses..." value={query} onChange={setQuery}/>
+    <ListState loading={list.loading} error={list.error} onRetry={list.reload} empty={rows.length || list.loading || list.error ? null : "No courses recorded."}>
+      <DataTable columns={["Course Name","Code","Domain","Status"]} rows={rows.map((c)=>[c.title,c.code,c.domain || "—",c.status])} onView={(i)=>setDetail(rows[i])} viewLabel="View"/>
+    </ListState></div>
+    {detail && <DetailModal title={detail.title} subtitle={`${detail.code} · ${detail.status}`} onClose={()=>setDetail(null)} wide actions={<Link className="button button-primary" to={`/admin/courses/${detail._id}`}>Open course</Link>}><DetailRows rows={[["Domain", detail.domain || "—"],["Description", detail.description || "—"],["Outcomes", (detail.competencyOutcomes||[]).map((o)=>`${o.competency?.name || o.competency} L${o.targetLevel}`).join(", ") || "—"]]} /></DetailModal>}
+  </Shell>;
+}
+function AssessmentsPage(){
+  const [detail, setDetail] = useState(null);
+  const list = useApi(() => part3.get("/assessments"), []);
+  const submissions = useApi(() => part3.get("/submissions"), []);
+  const rows = Array.isArray(list.data) ? list.data : [];
+  const submissionRows = Array.isArray(submissions.data) ? submissions.data : [];
+  return<Shell eyebrow="TRAINING" title="Assessments" desc="Assessment instruments and submissions. Scores are evidence only." action={<Link className="button button-primary" to="/admin/assessments">Open Assessments</Link>}><div className="admin-info-callout"><ShieldCheck size={16} color="#3b82f6"/>MCQ scoring is server-side. Assessment scores are evidence — competency decisions require authorized human review.</div><KpiRow items={[[ClipboardCheck,String(rows.length),"Assessments","","#3b82f6"],[Users,String(submissionRows.length),"Submissions","","#10b981"],[FileCheck2,String(rows.filter((a)=>a.status==="PUBLISHED").length),"Published","","#8b5cf6"],[AlertTriangle,String(submissionRows.filter((s)=>["SUBMITTED","UNDER_EVALUATION"].includes(s.status)).length),"Pending review","","#f59e0b"]]}/><div className="admin-panel">
+    <ListState loading={list.loading} error={list.error} onRetry={list.reload} empty={rows.length || list.loading || list.error ? null : "No assessments recorded."}>
+      <DataTable columns={["Assessment Name","Type","Batch","Status"]} rows={rows.map((a)=>[a.title,a.type,a.batch?.name || "—",a.status])} onView={(i)=>setDetail(rows[i])} viewLabel="View"/>
+    </ListState></div>
+    {detail && <DetailModal title={detail.title} subtitle={`${detail.type} v${detail.version} · ${detail.status}`} onClose={()=>setDetail(null)} wide actions={<Link className="button button-primary" to="/admin/assessments">Open assessment</Link>}><DetailRows rows={[["Batch", detail.batch?.name || "—"],["Window", `${fmtDate(detail.opensAt, true)} — ${fmtDate(detail.closesAt, true)}`],["Instructions", detail.instructions || "—"],["Questions", `${detail.questionVersions?.length || 0} frozen versions`]]} /></DetailModal>}
+  </Shell>;
+}
+function CertificationsPage(){
+  const toast = useToast();
+  const [detail, setDetail] = useState(null);
+  const [revokeReason, setRevokeReason] = useState("");
+  const certs = useApi(() => part3.get("/certificates"), []);
+  const rows = certs.data?.certificates || [];
+  const download = async (row) => {
+    try {
+      const response = await api.get(`/part3/certificates/${row._id}/pdf`, { responseType: "blob" });
+      const url = URL.createObjectURL(response.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${row.certificateId}.pdf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      toast(errorMessage(e));
+    }
+  };
+  const revoke = async () => {
+    if (!detail || !revokeReason) return;
+    await certs.run(() => part3.post(`/certificates/${detail._id}/revoke`, { reason: revokeReason }), toast, "Certificate revoked");
+    setDetail(null);
+    setRevokeReason("");
+  };
+  return<Shell eyebrow="TRAINING" title="Certifications" desc="Course-completion records. A certificate never establishes verified competency."><div className="admin-info-callout"><Info size={16} color="#3b82f6"/>Competency is established only by an explicit, authorized human decision.</div><KpiRow items={[[Award,String(rows.length),"Certificates","","#f59e0b"],[FileCheck2,String(rows.filter((c)=>c.status==="ISSUED").length),"Issued","","#10b981"],[Clock3,String(rows.filter((c)=>c.status!=="ISSUED" && c.status!=="REVOKED").length),"Other states","","#f59e0b"],[AlertTriangle,String(rows.filter((c)=>c.status==="REVOKED").length),"Revoked","","#ef4444"]]}/><div className="admin-panel">
+    <ListState loading={certs.loading} error={certs.error} onRetry={certs.reload} empty={rows.length || certs.loading || certs.error ? null : "No certificates issued."}>
+      <DataTable columns={["Employee","Certificate","Course","Issued","Status"]} rows={rows.map((c)=>[c.traineeName,c.certificateId,c.courseTitle,fmtDate(c.completedAt),c.status])} onView={(i)=>setDetail(rows[i])} viewLabel="View"/>
+    </ListState></div>
+    {detail && <DetailModal title={detail.certificateId} subtitle={`${detail.traineeName} · ${detail.courseTitle}`} onClose={()=>{setDetail(null); setRevokeReason("");}} wide actions={<><button className="button button-secondary" disabled={certs.busy} onClick={() => download(detail)}>Download PDF</button><button className="button button-primary" disabled={certs.busy || !revokeReason} onClick={revoke}>Revoke</button></>}><DetailRows rows={[["Batch", detail.batchName || "—"],["Completed", fmtDate(detail.completedAt)],["Status", detail.status],["History", (detail.history||[]).map((h)=>`${h.action} · ${fmtDate(h.at)} · ${h.reason}`).join("; ") || "—"]]} /><label className="admin-form-label">Revocation reason *<input className="admin-form-input" value={revokeReason} onChange={(e)=>setRevokeReason(e.target.value)} /></label><p className="muted">Issuing stays in Certificates against configured course conditions.</p></DetailModal>}
+  </Shell>;
+}
 function KnowledgeBasePage(){return<Shell eyebrow="KNOWLEDGE CONTINUITY" title="Knowledge Base" desc="Manage organizational knowledge assets, succession planning and capability risk assessment."><KpiRow items={[[FileText,"124","Knowledge Articles","","#3b82f6"],[UserCheck,"18","Subject Matter Experts","","#10b981"],[AlertTriangle,"6","At Risk Roles","","#ef4444"],[Target,"82%","Knowledge Coverage","","#8b5cf6"]]}/><div className="admin-panel"><DataTable columns={["Topic","Category","Expert Owner","Last Reviewed","Risk Level"]} rows={[["Advanced Radar Analysis Techniques","Core Meteorological","Dr. R. Krishnamurthy","Aug 2026","Low"],["NWP Model Configuration","Technical","Prof. S. Mehta","Jul 2026","High"],["Satellite Data Processing","Technical","Mr. A. Bose","Jun 2026","At Risk"]]} onView={()=>{}} viewLabel="View"/></div></Shell>;}
 function UserApprovalsPage(){const[tab,setTab]=useState("pending");const[reviewing,setReviewing]=useState(null);const APPROVAL_ROWS=[["Amit Sharma","amit.sharma@imd.gov.in","Trainer","Forecasting Division","20 Aug 2026","Pending"],["Neha Verma","neha.verma@imd.gov.in","Trainer","Regional Centre Mumbai","19 Aug 2026","Pending"],["Rohit Kumar","rohit.kumar@imd.gov.in","Trainee","Climate Research","19 Aug 2026","Pending"],["Kavya Nair","kavya.nair@imd.gov.in","Trainer","Observatory","18 Aug 2026","Pending"],["Suresh Patel","suresh.p@imd.gov.in","Trainee","Administration","17 Aug 2026","Pending"],["Priya Singh","priya.s@imd.gov.in","Trainer","R&D Division","16 Aug 2026","Pending"],["Arjun Das","arjun.d@imd.gov.in","Trainee","Forecasting Division","15 Aug 2026","Pending"]];const APPROVED_ROWS=[["Asha Sharma","asha.sharma@imd.gov.in","Trainee","Forecasting Division","10 Aug 2026","Approved"],["Vikram Nair","vikram.n@imd.gov.in","Trainer","Regional Centre Delhi","08 Aug 2026","Approved"]];const REJECTED_ROWS=[["Ankit Joshi","ankit.j@imd.gov.in","Trainer","Observatories","05 Aug 2026","Rejected"]];const rows=tab==="pending"?APPROVAL_ROWS:tab==="approved"?APPROVED_ROWS:REJECTED_ROWS;return<Shell eyebrow="PEOPLE MANAGEMENT" title="User Approvals" desc="Review new user registration requests, verify details, and assign platform roles." badge="7 Pending"><KpiRow items={[[AlertTriangle,"7","Pending Approvals","","#f59e0b"],[CheckCircle2,"128","Approved Users","","#10b981"],[XCircle,"12","Rejected Requests","","#ef4444"],[Activity,"96%","Profile Completion","","#3b82f6"]]}/><div className="admin-panel"><Tabs tabs={[{id:"pending",label:"Pending Requests",count:7},{id:"approved",label:"Approved",count:128},{id:"rejected",label:"Rejected",count:12}]} active={tab} onChange={setTab}/><SearchFilter placeholder="Search by name, email or department..." extraFilters={[{label:"All Roles",options:["Trainee","Trainer","Admin"]},{label:"All Departments",options:["Forecasting Division","R&D","Regional Centres","Observatories"]}]}/><DataTable columns={["Name","Email","Requested Role","Department","Request Date","Status"]} rows={rows} onView={(i)=>setReviewing(i)} viewLabel="Review"/></div></Shell>;}
 

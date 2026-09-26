@@ -1,18 +1,212 @@
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { BookOpen, CalendarDays, CheckCircle2, Clock3, FileText, GraduationCap, PlayCircle, Plus, Target, Users, Video, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import useAuth from "../../hooks/useAuth";
+import DetailModal, { DetailRows } from "../../components/ui/DetailModal";
+import useApi, { fmtDate } from "../../hooks/useApi";
+import { errorMessage } from "../../services/api";
+import { part2 } from "../../services/part2Service";
+import { part3 } from "../../services/part3Service";
+import StatusBadge from "../../components/ui/StatusBadge";
+import Part2Page from "../part2/Part2Page";
+import Part3ModulePage from "../part3/Part3ModulePage";
+import Part3BPage from "../part3/Part3BPage";
+import FeedbackPage from "../feedback/FeedbackPage";
+import TttPage from "../ttt/TttPage";
 
-const trainees=[["Asha Verma","IMD2345","Advanced NWP Training",80,"Active"],["Rohit Mehta","IMD2378","Data Assimilation",65,"Active"],["Kavya Nair","IMD2412","Climate Modeling",40,"At Risk"],["Manish Singh","IMD2450","Weather Forecasting",100,"Completed"]];
-const courses=[["Advanced NWP Training","Numerical Modeling","Advanced",12,"Published"],["Data Assimilation Concepts","Data Assimilation","Intermediate",8,"Published"],["Climate Modeling for Beginners","Climate Studies","Beginner",15,"Draft"],["Weather Forecasting Techniques","Forecasting","Intermediate",10,"Published"]];
 function Shell({title,description,children,action}){return <div className="trainer-experience"><div className="trainer-heading"><div><span>TRAINER PORTAL · SAMARTHYA</span><h1>{title}</h1><p>{description}</p></div>{action}</div>{children}</div>}
-function Table({type="trainees"}){const rows=type==="courses"?courses:trainees;const headers=type==="courses"?["Course title","Category","Level","Trainees","Status","Action"]:["Name","Employee ID","Course","Progress","Status","Action"];return <section className="trainer-panel"><div className="trainer-filters"><input placeholder={type==="courses"?"Search courses...":"Search trainees..."}/><select><option>All courses</option></select><select><option>All status</option></select></div><div className="trainer-table"><div className="tr-head">{headers.map(x=><b key={x}>{x}</b>)}</div>{rows.map(r=><div className="tr-row" key={r[0]}>{type==="courses"?<><span><i className="thumb">◌</i>{r[0]}</span><span>{r[1]}</span><span>{r[2]}</span><span>{r[3]}</span><em className={r[4].toLowerCase()}>{r[4]}</em><button>Manage</button></>:<><span><i className="avatar">{r[0].split(" ").map(x=>x[0]).join("")}</i>{r[0]}</span><span>{r[1]}</span><span>{r[2]}</span><span className="table-progress"><i style={{width:`${r[3]}%`}}/>{r[3]}%</span><em className={r[4].replace(" ","").toLowerCase()}>{r[4]}</em><button>View</button></>}</div>)}</div></section>}
-function Dashboard(){const {user}=useAuth();const name=user?.name||"Dr. Ananya Rao";return <Shell title={`Good morning, ${name}!`} description="Here’s an overview of your training activities." action={<small>Tuesday, 18 Aug 2026</small>}><div className="trainer-stats">{[[Users,"12","Assigned trainees"],[BookOpen,"4","Active courses"],[CalendarDays,"3","Upcoming sessions"],[FileText,"5","Pending evaluations"]].map(([I,n,t])=><div key={t}><I/><b>{n}</b><span>{t}</span></div>)}</div><div className="trainer-columns"><section className="trainer-panel"><div className="panel-title"><div><h2>Upcoming sessions</h2><p>Sessions scheduled in the next few days.</p></div><a>View all</a></div>{[["18","Advanced NWP Training","10:00 AM – 11:30 AM","Online"],["20","Data Assimilation Concepts","02:00 PM – 04:00 PM","Online"],["22","Climate Modeling Workshop","11:00 AM – 12:30 PM","Online"]].map(([d,t,time,mode])=><div className="session-row" key={t}><b>{d}<small>AUG</small></b><span><strong>{t}</strong><small>{time} · {mode}</small></span><button>{d==="18"?"Start":"View"}</button></div>)}</section><section className="trainer-panel"><div className="panel-title"><h2>Pending actions</h2><a>View all</a></div>{[["5","Assessments to review"],["3","Trainee queries"],["2","Course materials to upload"],["1","Feedback to respond"]].map(([n,t])=><p className="action-row" key={t}><b>{n}</b>{t}<ArrowRight size={14}/></p>)}</section></div></Shell>}
-function CourseManagement(){return <Shell title="Course management" description="Create, edit and manage your courses and learning content." action={<button className="button button-primary"><Plus size={16}/>Create new course</button>}><div className="trainer-tabs"><b>My courses</b><span>Create course</span><span>Course templates</span></div><Table type="courses"/></Shell>}
-function Assigned(){return <Shell title="Assigned trainees" description="View your assigned trainees and track their current progress."><div className="trainer-tabs"><b>All trainees</b><span>Active</span><span>At risk</span><span>Completed</span></div><Table/></Shell>}
-function Resources(){return <Shell title="Resource library" description="Upload, manage and share learning resources for your courses." action={<button className="button button-primary"><Plus size={16}/>Upload resource</button>}><div className="trainer-tabs"><b>All resources</b><span>My uploads</span><span>Shared with me</span><span>Favourites</span></div><section className="trainer-panel"><div className="trainer-filters"><input placeholder="Search resources..."/><select><option>All types</option></select><select><option>All courses</option></select></div>{[["Radar_Introduction.pdf","PDF","Radar Basics","2.4 MB","Public"],["Weather_Modeling.ppt","PPT","Climate Modeling","5.1 MB","Course only"],["Satellite_Data.mp4","Video","Data Assimilation","1.2 GB","Public"],["NWP_Dataset.zip","Dataset","Practical Training","45 MB","Private"]].map(r=><div className="resource-row" key={r[0]}><FileText/><span><b>{r[0]}</b><small>{r[1]}</small></span><span>{r[2]}</span><span>{r[3]}</span><em>{r[4]}</em><button>⋮</button></div>)}</section></Shell>}
-function Assessments(){return <Shell title="Assessment creation" description="Create and manage quizzes, assignments and practical tasks for your courses." action={<button className="button button-primary"><Plus size={16}/>Create assessment</button>}><div className="trainer-tabs"><b>All assessments</b><span>Quizzes</span><span>Assignments</span><span>Practical tasks</span><span>Question bank</span></div><section className="trainer-panel">{[["NWP – Radar Basics","Quiz","Radar Basics","25 Aug 2026",20,"Published"],["Assignment – Case Study","Assignment","Data Assimilation","28 Aug 2026",100,"Draft"],["Practical – Model Run","Practical","NWP Training","30 Aug 2026",100,"Published"],["Quiz – Climate Concepts","Quiz","Climate Modeling","02 Sep 2026",20,"Closed"]].map(r=><div className="assessment-row" key={r[0]}><span><FileText/>{r[0]}</span><span>{r[1]}</span><span>{r[2]}</span><span>{r[3]}</span><span>{r[4]}</span><em>{r[5]}</em><button>Edit</button></div>)}</section></Shell>}
-function Schedule({session=false}){return <Shell title={session?"Training session":"Availability & capacity"} description={session?"Conduct live or recorded training sessions with your trainees.":"Set your available time slots, location preference and training capacity."}>{session?<div className="live-session"><div className="live-top"><span>← Back</span><b>Advanced NWP Training — Session 3</b><em>● Live</em><button>End session</button></div><div className="presentation"><div><span>1</span><span>2</span><span>3</span></div><main><h2>Numerical Weather Prediction</h2><p>• Governing equations<br/>• Model design<br/>• Boundary conditions<br/>• Applications</p></main><aside><div>AS</div><div>RM</div><div>KN</div></aside></div><div className="meeting-controls">Mute · Stop video · Share screen · Whiteboard · Participants · Chat · Raise hand · Record</div></div>:<div className="availability"><section className="trainer-panel"><div className="trainer-tabs"><b>My availability</b><span>Training capacity</span></div><div className="calendar-grid"><b>Time</b>{["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(x=><b key={x}>{x}</b>)}{["09:00","10:00","11:00","12:00","01:00","02:00","03:00","04:00"].flatMap((t,i)=>[<span key={t}>{t}</span>,...Array.from({length:7},(_,x)=><i key={`${t}${x}`} className={(i+x)%5===0?"busy":(i+x)%3===0?"available":""}>{(i+x)%5===0?"Busy":(i+x)%3===0?"Available":""}</i>)])}</div></section><aside className="trainer-panel capacity"><h2>Training capacity</h2><label>Maximum trainees per batch<input value="20" readOnly/></label><label>Concurrent courses<input value="5" readOnly/></label><label>Location preference <select><option>Online (Default)</option><option>IMD Offices</option><option>Hybrid</option></select></label><button className="button button-primary">Save availability</button></aside></div>}</Shell>}
-function Monitoring(){return <Shell title="Trainee monitoring" description="Track attendance, progress, assessment scores and engagement."><div className="trainer-tabs"><b>Overview</b><span>Attendance</span><span>Assessment scores</span><span>Engagement</span><span>Individual view</span></div><div className="trainer-stats compact">{[[Users,"12","Total trainees"],[CheckCircle2,"8","Active"],[Target,"2","At risk"],[GraduationCap,"2","Completed"]].map(([I,n,t])=><div key={t}><I/><b>{n}</b><span>{t}</span></div>)}</div><Table/></Shell>}
-function Feedback(){return <Shell title="Trainer feedback" description="Share your feedback on the training experience, platform and support."><div className="trainer-columns"><section className="trainer-panel feedback-form"><h2>Provide feedback</h2><label>Training experience<div className="stars">★ ★ ★ ★ ☆ <small>4 / 5</small></div></label><label>What went well?<textarea defaultValue="The trainees were engaged and the course materials were helpful."/></label><label>What could be improved?<textarea placeholder="More real-time datasets for practical sessions would be useful."/></label><label>Additional comments (optional)<textarea placeholder="Looking forward to conducting more modules in the future."/></label></section><section className="trainer-panel rating-list"><h2>Rate specific aspects</h2>{["Course content","Trainee engagement","Platform usability","Support from IMD"].map((x,i)=><p key={x}><span>{x}</span><b>{i===1?"★★★★★":"★★★★☆"}</b><small>{i===1?"5 / 5":"4 / 5"}</small></p>)}<button className="button button-primary">Submit feedback</button></section></div></Shell>}
-function Ttt({candidates=false}){return <Shell title={candidates?"Train the Trainer — candidates":"Train the Trainer dashboard"} description={candidates?"View and manage candidates assigned to your Train-the-Trainer programme.":"Empower the next generation of verified trainers."} action={candidates?null:<Link className="button button-primary" to="/trainer/ttt-candidates">View TTT candidates <ArrowRight size={15}/></Link>}>{candidates?<><div className="trainer-filters"><input placeholder="Search candidates..."/><select><option>All competencies</option></select><select><option>All status</option></select></div><section className="trainer-panel"><div className="tr-head"><b>Candidate</b><b>Competency</b><b>Level</b><b>TTT progress</b><b>Status</b><b>Action</b></div>{[["Rohit Mehta","Data Assimilation","L3",60,"In progress"],["Priya Iyer","Climate Analysis","L3",80,"In progress"],["Amit Sharma","Modeling","L3",30,"Not started"],["Vikram Singh","Weather Forecasting","L3",100,"Completed"]].map(r=><div className="tr-row" key={r[0]}><span><i className="avatar">{r[0].split(" ").map(x=>x[0]).join("")}</i>{r[0]}</span><span>{r[1]}</span><span>{r[2]}</span><span className="table-progress"><i style={{width:`${r[3]}%`}}/>{r[3]}%</span><em>{r[4]}</em><button>View</button></div>)}</section></>:<><div className="trainer-stats">{[[BookOpen,"12","Active courses"],[Users,"48","Trainees"],[GraduationCap,"4","TTT candidates"],[FileText,"2","Evaluations pending"]].map(([I,n,t])=><div key={t}><I/><b>{n}</b><span>{t}</span></div>)}</div><div className="trainer-columns"><section className="trainer-panel"><h2>TTT responsibilities</h2>{[["4","TTT candidates assigned"],["2","Teaching practice sessions scheduled"],["2","Evaluations pending"]].map(([n,t])=><p className="action-row" key={t}><b>{n}</b>{t}</p>)}<Link className="button button-primary" to="/trainer/ttt-candidates">View TTT candidates <ArrowRight size={15}/></Link></section><section className="trainer-panel"><h2>Today’s schedule</h2>{[["10:00 AM","TTT Session — Adult Learning","Live"],["2:00 PM","Course Session — Data Assimilation","Online"],["3:00 PM","TTT Practice Observation","Scheduled"]].map(r=><div className="session-row" key={r[1]}><b><Clock3 size={15}/></b><span><strong>{r[1]}</strong><small>{r[0]}</small></span><button>{r[2]}</button></div>)}</section></div></>}</Shell>}
-export default function TrainerExperiencePage({view}){const key=view||useLocation().pathname.split("/").at(-1);if(!key||key==="dashboard")return <Dashboard/>;if(key==="courses")return <CourseManagement/>;if(key==="assigned-batches")return <Assigned/>;if(key==="learning")return <Resources/>;if(key==="assessments"||key==="question-bank")return <Assessments/>;if(key==="training-sessions")return <Schedule session/>;if(key==="availability"||key==="calendar")return <Schedule/>;if(key==="results")return <Monitoring/>;if(key==="feedback")return <Feedback/>;if(key==="train-the-trainer")return <Ttt/>;if(key==="ttt-candidates")return <Ttt candidates/>;return <Dashboard/>}
+function PanelState({ loading, error, empty, onRetry, children }) {
+  if (loading) return <section className="trainer-panel"><p>Loading…</p></section>;
+  if (error) return <section className="trainer-panel" role="alert"><p>{error}</p><button className="button button-secondary" onClick={onRetry}>Retry</button></section>;
+  if (empty) return <section className="trainer-panel"><p>{empty}</p></section>;
+  return children;
+}
+
+function Dashboard(){
+  const {user}=useAuth();const name=user?.name||"Trainer";
+  const dash = useApi(() => part3.get("/dashboard"), []);
+  const [assignmentDetail, setAssignmentDetail] = useState(null);
+  const assignments = dash.data?.assignments || [];
+  const active = assignments.filter((a) => a.status === "ACTIVE");
+  const submissions = dash.data?.submissions || [];
+  const pending = submissions.filter((s) => ["SUBMITTED","UNDER_EVALUATION"].includes(s.status));
+  const upcoming = active.slice(0, 3);
+  return <Shell title={`Good morning, ${name}!`} description="Assigned sessions, authored content and pending evaluations." action={<small>{fmtDate(new Date())}</small>}>
+    <PanelState loading={dash.loading} error={dash.error} onRetry={dash.reload} empty={null}>
+      <div className="trainer-stats">
+        {[["Assigned sessions", active.length],["Authored questions", (dash.data?.questions||[]).length],["Assessments", (dash.data?.assessments||[]).length],["Pending evaluations", pending.length]].map(([t,n])=><div key={t}><b>{n}</b><span>{t}</span></div>)}
+      </div>
+      <div className="trainer-columns">
+        <section className="trainer-panel"><div className="panel-title"><div><h2>Upcoming sessions</h2><p>Coordinator-assigned sessions in your scope.</p></div><Link to="/trainer/training-sessions">View all</Link></div>
+          {upcoming.length ? upcoming.map((a)=><div className="session-row" key={a._id}><span><strong>{a.batch?.name || a.scopeTitle}</strong><small>{fmtDate(a.start, true)} · {a.batch?.course?.title || ""}</small></span><StatusBadge status={a.status} /><button onClick={() => setAssignmentDetail(a)}>View</button></div>) : <p className="muted">No assigned sessions in your scope.</p>}
+        </section>
+        <section className="trainer-panel"><div className="panel-title"><h2>Pending actions</h2><Link to="/trainer/evaluations">View all</Link></div>
+          {pending.length ? pending.slice(0,4).map((s)=><p className="action-row" key={s._id}><b>1</b>{s.assessment?.title} · {s.trainee?.name}<Link to="/trainer/evaluations"><ArrowRight size={14}/></Link></p>) : <p className="muted">Nothing waiting on you.</p>}
+          <p className="muted">Profile review: {dash.data?.profile?.reviewStatus || "SELF_DECLARED"} · Expertise records: {(dash.data?.expertise||[]).length}</p>
+        </section>
+      </div>
+    </PanelState>
+    {assignmentDetail && <DetailModal title={assignmentDetail.batch?.name || assignmentDetail.scopeTitle} subtitle={`${fmtDate(assignmentDetail.start, true)} · ${assignmentDetail.batch?.course?.title || ""}`} onClose={() => setAssignmentDetail(null)} actions={<Link className="button button-secondary" to="/trainer/training-sessions">Open sessions</Link>}><DetailRows rows={[["Status", assignmentDetail.status],["Decision reason", assignmentDetail.decisionReason || "—"],["Assigned at", fmtDate(assignmentDetail.assignedAt, true)]]}/></DetailModal>}
+  </Shell>;
+}
+
+function CourseManagement(){
+  const courses = useApi(() => part2.get("/courses"), []);
+  const [detail, setDetail] = useState(null);
+  const [query, setQuery] = useState("");
+  const rows = (courses.data?.items || courses.data || []).filter((c) => !query || c.title?.toLowerCase().includes(query.toLowerCase()));
+  return <Shell title="Course management" description="Owned courses you may deliver. Creation stays in Courses; publishing rules are enforced server-side." action={<Link className="button button-primary" to="/trainer/courses">Open Courses</Link>}>
+    <section className="trainer-panel"><div className="trainer-filters"><input placeholder="Search courses..." value={query} onChange={(e) => setQuery(e.target.value)}/></div>
+      <PanelState loading={courses.loading} error={courses.error} onRetry={courses.reload} empty={rows.length || courses.loading || courses.error ? null : "No courses in your scope."}>
+        <div className="trainer-table"><div className="tr-head">{["Course title","Code","Status","Action"].map(x=><b key={x}>{x}</b>)}</div>{rows.map((c)=><div className="tr-row" key={c._id}><span><i className="thumb">◌</i>{c.title}</span><span>{c.code}</span><StatusBadge status={c.status} /><button onClick={() => setDetail(c)}>Manage</button></div>)}</div>
+      </PanelState></section>
+    {detail && <DetailModal title={detail.title} subtitle={`${detail.code} · ${detail.status}`} onClose={() => setDetail(null)} actions={<Link className="button button-primary" to={`/trainer/courses/${detail._id}`}>Open course</Link>}><DetailRows rows={[["Domain", detail.domain || "—"],["Description", detail.description || "—"],["Outcomes", (detail.competencyOutcomes||[]).map((o)=>`${o.competency?.name || o.competency} L${o.targetLevel}`).join(", ") || "—"]]}/></DetailModal>}
+  </Shell>;
+}
+
+function Assigned(){
+  const roster = useApi(() => part3.get("/trainees"), []);
+  const [detail, setDetail] = useState(null);
+  const [query, setQuery] = useState("");
+  const rows = (roster.data?.rows || []).filter((r) => !query || r.trainee?.name?.toLowerCase().includes(query.toLowerCase()));
+  const batches = roster.data?.batches || [];
+  return <Shell title="Assigned trainees" description="Confirmed admissions in batches you may deliver. Progress is recorded activity, not competency.">
+    <section className="trainer-panel"><div className="trainer-filters"><input placeholder="Search trainees..." value={query} onChange={(e) => setQuery(e.target.value)}/><span className="muted">{batches.length} batches · {rows.length} trainees</span></div>
+      <PanelState loading={roster.loading} error={roster.error} onRetry={roster.reload} empty={rows.length || roster.loading || roster.error ? null : "No confirmed trainees in your scope."}>
+        <div className="trainer-table"><div className="tr-head">{["Name","Batch","Learning","Assessments","Result","Action"].map(x=><b key={x}>{x}</b>)}</div>{rows.map((r)=><div className="tr-row" key={r.enrollment}><span><i className="avatar">{(r.trainee?.name||"?").split(" ").map(x=>x[0]).join("")}</i>{r.trainee?.name}</span><span>{r.batch?.name}</span><span className="table-progress"><i style={{width:`${r.learning?.percent||0}%`}}/>{r.learning?.completed||0}/{r.learning?.total||0}</span><span>{r.assessments?.submitted ? `${r.assessments.submitted} submitted${r.assessments.bestPercentage != null ? ` · best ${r.assessments.bestPercentage}%` : ""}` : "Not attempted"}</span><span>{r.result ? `${r.result.outcome} ${r.result.percentage}%` : "Not published"}</span><button onClick={() => setDetail(r)}>View</button></div>)}</div>
+      </PanelState></section>
+    {detail && <DetailModal title={detail.trainee?.name} subtitle={`${detail.batch?.name} · ${detail.trainee?.designation || ""}`} onClose={() => setDetail(null)} wide actions={<Link className="button button-secondary" to="/trainer/evaluations">Open evaluations</Link>}><DetailRows rows={[["Email", detail.trainee?.email || "—"],["Learning", `${detail.learning?.completed||0}/${detail.learning?.total||0} modules (${detail.learning?.percent||0}%)`],["Assessments", detail.assessments?.submitted ? `${detail.assessments.submitted} submitted · best ${detail.assessments.bestPercentage ?? "—"}%` : "Not attempted"],["Evaluations", `pending ${detail.evaluations?.pending||0} · returned ${detail.evaluations?.returned||0} · evaluated ${detail.evaluations?.evaluated||0}`],["Result", detail.result ? `${detail.result.outcome} ${detail.result.percentage}% v${detail.result.version}` : "Not published"],["Evidence", `${detail.evidence?.verified||0} verified · ${detail.evidence?.pending||0} pending of ${detail.evidence?.total||0}`],["Last activity", fmtDate(detail.lastActivityAt, true)]]}/></DetailModal>}
+  </Shell>;
+}
+
+function Resources(){
+  const media = useApi(() => part3.media.list(), []);
+  const [detail, setDetail] = useState(null);
+  const assets = media.data?.assets || [];
+  return <Shell title="Resource library" description="Recorded lectures you own or may deliver. Upload and moderation stay in Learning; playback never creates evidence." action={<Link className="button button-primary" to="/trainer/learning">Open learning</Link>}>
+    <PanelState loading={media.loading} error={media.error} onRetry={media.reload} empty={assets.length || media.loading || media.error ? null : "No recordings in your scope."}>
+      <section className="trainer-panel">{assets.map((a)=><div className="resource-row" key={a._id}><span><b>{a.title}</b><small>{a.course?.title} · {Math.round((a.size||0)/1024)} KB</small></span><StatusBadge status={a.status} /><button onClick={() => setDetail(a)}>⋮</button></div>)}</section>
+    </PanelState>
+    {detail && <DetailModal title={detail.title} subtitle={`${detail.course?.title || ""} · ${detail.status}`} onClose={() => setDetail(null)} actions={<Link className="button button-secondary" to="/trainer/learning">Open in learning</Link>}><DetailRows rows={[["Owner", detail.owner?.name || "—"],["Size", `${Math.round((detail.size||0)/1024)} KB`],["Status", detail.status],["Moderation", detail.moderationReason || "—"]]}/></DetailModal>}
+  </Shell>;
+}
+
+function Assessments(){
+  const list = useApi(() => part3.get("/assessments"), []);
+  const bank = useApi(() => part3.get("/questions"), []);
+  const [assessmentDetail, setAssessmentDetail] = useState(null);
+  const [questionDetail, setQuestionDetail] = useState(null);
+  const rows = Array.isArray(list.data) ? list.data : [];
+  const questions = Array.isArray(bank.data) ? bank.data : [];
+  return <Shell title="Assessment creation" description="Drafts, independent question review and publication. MCQ scoring is server-side; scores are evidence only." action={<Link className="button button-primary" to="/trainer/assessments">Open assessments</Link>}>
+    <PanelState loading={list.loading} error={list.error} onRetry={list.reload} empty={rows.length || list.loading || list.error ? null : "No assessments in your scope."}>
+      <section className="trainer-panel">{rows.map((a)=><div className="assessment-row" key={a._id}><span>{a.title}</span><span>{a.type}</span><span>{a.batch?.name}</span><span>{fmtDate(a.closesAt)}</span><StatusBadge status={a.status} /><button onClick={() => setAssessmentDetail(a)}>View</button></div>)}</section>
+    </PanelState>
+    <section className="trainer-panel"><h2>Question bank ({questions.length})</h2>{questions.slice(0,5).map((q)=><div className="assessment-row" key={q._id}><span>{q.questionKey}</span><span>{q.text?.slice(0,60)}</span><StatusBadge status={q.status} /><button onClick={() => setQuestionDetail(q)}>View</button></div>)}<Link to="/trainer/question-bank">Open question bank</Link></section>
+    {assessmentDetail && <DetailModal title={assessmentDetail.title} subtitle={`${assessmentDetail.type} v${assessmentDetail.version} · ${assessmentDetail.status}`} onClose={() => setAssessmentDetail(null)} wide actions={<Link className="button button-primary" to="/trainer/assessments">Open assessment</Link>}><DetailRows rows={[["Batch", assessmentDetail.batch?.name || "—"],["Window", `${fmtDate(assessmentDetail.opensAt, true)} — ${fmtDate(assessmentDetail.closesAt, true)}`],["Instructions", assessmentDetail.instructions || "—"],["Questions", `${assessmentDetail.questionVersions?.length || 0} frozen versions`]]}/></DetailModal>}
+    {questionDetail && <DetailModal title={questionDetail.questionKey} subtitle={`${questionDetail.course?.title || ""} v${questionDetail.version} · ${questionDetail.status}`} onClose={() => setQuestionDetail(null)}><DetailRows rows={[["Question", questionDetail.text || "—"],["Source", questionDetail.sourceReference || "—"],["Reviewer", questionDetail.reviewer?.name || "Awaiting independent review"]]}/></DetailModal>}
+  </Shell>;
+}
+
+function Schedule({session=false}){
+  const list = useApi(() => part3.get("/training-sessions"), []);
+  const avail = useApi(() => part3.get("/availability"), []);
+  const toast = { toast: (m) => m };
+  const [sessionDetail, setSessionDetail] = useState(null);
+  const [availDetail, setAvailDetail] = useState(null);
+  const [form, setForm] = useState({});
+  const [saving, setSaving] = useState(false);
+  const batches = list.data?.batches || [];
+  const summary = list.data?.summary || {};
+  const sessions = batches.flatMap((b) => (b.sessions||[]).map((s) => ({ ...s, batchName: b.name, courseName: b.course?.title })));
+  const shownSessions = session ? sessions.filter((s) => s.assignment?.status === "ACTIVE") : sessions;
+  const saveAvailability = async () => {
+    if (!form.start || !form.end || !form.reason) return;
+    setSaving(true);
+    try {
+      await part3.post("/availability", { start: new Date(form.start).toISOString(), end: new Date(form.end).toISOString(), available: form.available !== "false", reason: form.reason, deliveryModes: ["ONLINE","BLENDED"], locations: ["Demonstration Training Centre"], preferenceScore: 1 });
+      setForm({});
+      avail.reload();
+      list.reload();
+    } catch (e) { /* surfaced on reload */ } finally { setSaving(false); }
+  };
+  return <Shell title={session?"Training sessions":"Availability & capacity"} description={session?"Coordinator-assigned sessions. You cannot schedule or assign yourself.":"Declare availability; overlapping ACTIVE assignments flag for coordinator review."}>
+    <PanelState loading={list.loading} error={list.error} onRetry={list.reload} empty={shownSessions.length || list.loading || list.error ? null : "No sessions in your scope."}>
+      <p className="muted">Assigned {summary.assigned ?? "—"} of {summary.total ?? "—"} · unavailable {summary.unavailable ?? "—"} · upcoming {summary.upcoming ?? "—"}</p>
+      <section className="trainer-panel">{shownSessions.map((s)=><div className="session-row" key={s._id}><span><strong>{s.title}</strong><small>{fmtDate(s.start, true)} · {s.batchName} · {s.assignment ? s.assignment.status : "Not assigned"}</small></span><button onClick={() => setSessionDetail(s)}>View</button></div>)}</section>
+    </PanelState>
+    {!session && <>
+      <section className="trainer-panel"><h2>Availability windows</h2>
+        <PanelState loading={avail.loading} error={avail.error} onRetry={avail.reload} empty={(avail.data||[]).length || avail.loading || avail.error ? null : "No availability declared."}>
+          {(avail.data||[]).slice(0,5).map((a)=><div className="session-row" key={a._id}><span><strong>{fmtDate(a.start, true)} → {fmtDate(a.end, true)}</strong><small>{a.available ? "Available" : "Unavailable"} · {a.reason}</small></span><button onClick={() => setAvailDetail(a)}>View</button></div>)}
+        </PanelState></section>
+      <section className="trainer-panel"><h2>Declare availability</h2><label>Start *<input type="datetime-local" value={form.start||""} onChange={(e)=>setForm({...form,start:e.target.value})}/></label><label>End *<input type="datetime-local" value={form.end||""} onChange={(e)=>setForm({...form,end:e.target.value})}/></label><label>Availability<select value={form.available ?? "true"} onChange={(e)=>setForm({...form,available:e.target.value})}><option value="true">Available</option><option value="false">Unavailable</option></select></label><label>Reason *<textarea value={form.reason||""} onChange={(e)=>setForm({...form,reason:e.target.value})}/></label><button className="button button-primary" disabled={saving || !form.start || !form.end || !form.reason} onClick={saveAvailability}>Save availability</button></section>
+    </>}
+    {sessionDetail && <DetailModal title={sessionDetail.title} subtitle={`${fmtDate(sessionDetail.start, true)} · ${sessionDetail.batchName}`} onClose={() => setSessionDetail(null)}><DetailRows rows={[["Course", sessionDetail.courseName || "—"],["Competency", sessionDetail.competency?.name || "—"],["Required level", sessionDetail.requiredProficiency != null ? `L${sessionDetail.requiredProficiency}` : "—"],["Assignment", sessionDetail.assignment ? `${sessionDetail.assignment.status} · ${sessionDetail.assignment.decisionReason || ""}` : "Not assigned"],["Availability", sessionDetail.availability ? `${fmtDate(sessionDetail.availability.start, true)} (${sessionDetail.availability.available ? "available" : "unavailable"})` : "Not declared"]]}/></DetailModal>}
+    {availDetail && <DetailModal title="Availability window" subtitle={fmtDate(availDetail.start, true)} onClose={() => setAvailDetail(null)}><DetailRows rows={[["End", fmtDate(availDetail.end, true)],["Available", availDetail.available ? "Yes" : "No"],["Reason", availDetail.reason || "—"],["Modes", (availDetail.deliveryModes||[]).join(", ") || "—"]]}/></DetailModal>}
+  </Shell>;
+}
+
+function Monitoring(){
+  const results = useApi(() => part3.get("/results"), []);
+  const [detail, setDetail] = useState(null);
+  const rows = Array.isArray(results.data) ? results.data : [];
+  const published = rows.filter((r) => r.status === "PUBLISHED");
+  return <Shell title="Assessment results" description="Published results in batches you may deliver. Preparation and publication stay in Results.">
+    <PanelState loading={results.loading} error={results.error} onRetry={results.reload} empty={rows.length || results.loading || results.error ? null : "No published results in your scope."}>
+      <p className="muted">{published.length} published of {rows.length}</p>
+      <section className="trainer-panel">{rows.slice(0,10).map((r)=><div className="session-row" key={r._id}><span><strong>{r.trainee?.name}</strong><small>{r.batch?.name} · v{r.version} · {r.percentage}%</small></span><StatusBadge status={r.outcome} /><button onClick={() => setDetail(r)}>View</button></div>)}</section>
+    </PanelState>
+    <p className="muted">Scores are recorded activity and evidence only. Competency requires a separate authorized decision. <Link to="/trainer/evaluations">Open evaluation queue</Link></p>
+    {detail && <DetailModal title={detail.trainee?.name} subtitle={`${detail.batch?.name} · v${detail.version}`} onClose={() => setDetail(null)} actions={<Link className="button button-secondary" to="/trainer/results">Open results</Link>}><DetailRows rows={[["Outcome", detail.outcome],["Score", `${detail.totalScore}/${detail.maximumScore} (${detail.percentage}%)`],["Status", detail.status],["Published", fmtDate(detail.publishedAt, true)]]}/></DetailModal>}
+  </Shell>;
+}
+
+function TrainerFeedback(){
+  const fb = useApi(() => part3.get("/feedback"), []);
+  const aggs = fb.data?.aggregates || [];
+  return <Shell title="Training feedback" description="Scoped rating aggregates for your sessions. Participant names and comments stay hidden from trainers.">
+    <PanelState loading={fb.loading} error={fb.error} onRetry={fb.reload} empty={aggs.length || fb.loading || fb.error ? null : "No feedback in your scope yet."}>
+      <section className="trainer-panel">{aggs.map((a,i)=><p className="action-row" key={i}><b>{a.count}</b>{a.targetType} · avg {Number(a.average).toFixed(1)} / 5</p>)}</section>
+      <p className="muted">{fb.data?.privacy || ""}</p>
+    </PanelState>
+    <p className="muted">Give platform feedback from <Link to="/trainer/feedback">Feedback</Link>. Feedback never verifies competency.</p>
+  </Shell>;
+}
+
+function Ttt({candidates=false}){
+  const list = useApi(() => part3.get("/ttt/candidates"), []);
+  const [detail, setDetail] = useState(null);
+  const [learningDetail, setLearningDetail] = useState(null);
+  const noms = Array.isArray(list.data) ? list.data : [];
+  const openLearning = async (n) => {
+    try { setLearningDetail({ nomination: n, learning: await part3.get(`/ttt/nominations/${n._id}/learning`) }); }
+    catch (e) { setLearningDetail({ nomination: n, error: errorMessage(e) }); }
+  };
+  return <Shell title={candidates?"Train the Trainer — candidates":"Train the Trainer dashboard"} description={candidates?"Candidates in programmes you evaluate. Nomination and verification are coordinator decisions.":"Programmes you evaluate; candidates progress through learning, practice and evaluation."} action={candidates?null:<Link className="button button-primary" to="/trainer/ttt-candidates">View TTT candidates <ArrowRight size={15}/></Link>}>
+    <PanelState loading={list.loading} error={list.error} onRetry={list.reload} empty={noms.length || list.loading || list.error ? null : "No candidates in programmes you evaluate."}>
+      <section className="trainer-panel"><div className="tr-head"><b>Candidate</b><b>Competency</b><b>Level</b><b>Status</b><b>Action</b></div>{noms.map((n)=><div className="tr-row" key={n._id}><span><i className="avatar">{(n.candidate?.name||"?").split(" ").map(x=>x[0]).join("")}</i>{n.candidate?.name}</span><span>{n.competency?.name}</span><span>L{n.targetLevel}</span><StatusBadge status={n.status} /><span><button onClick={() => setDetail(n)}>View</button> <button onClick={() => openLearning(n)}>Learning</button></span></div>)}</section>
+    </PanelState>
+    {detail && <DetailModal title={detail.candidate?.name} subtitle={`${detail.program?.title || ""} · ${detail.status}`} onClose={() => setDetail(null)} wide actions={<Link className="button button-primary" to="/trainer/ttt-candidates">Open candidates</Link>}><DetailRows rows={[["Competency", detail.competency?.name || "—"],["Target level", `L${detail.targetLevel}`],["Rationale", detail.rationale || "—"],["Nominated by", detail.nominatedBy?.name || "—"],["Eligibility", (detail.eligibilitySnapshot?.checks||[]).map((c)=>`${c.key}: ${c.met ? "met" : "not met"}`).join("; ") || "—"]]}/></DetailModal>}
+    {learningDetail && <DetailModal title={`Learning — ${learningDetail.nomination.candidate?.name}`} subtitle={learningDetail.learning?.gate || learningDetail.error || ""} onClose={() => setLearningDetail(null)}><DetailRows rows={[["Completed", `${learningDetail.learning?.completed ?? "—"}/${learningDetail.learning?.total ?? "—"}`],["Note", learningDetail.learning?.note || "—"], ...((learningDetail.learning?.items||[]).map((it) => [`Course: ${it.course?.title}`, `${it.status} ${it.progressPercent ?? ""}%`]))]}/></DetailModal>}
+  </Shell>;
+}
+
+export default function TrainerExperiencePage({view}){
+  const key=view||useLocation().pathname.split("/").at(-1);
+  if(!key||key==="dashboard")return <Dashboard/>;
+  if(key==="courses")return <CourseManagement/>;
+  if(key==="assigned-batches")return <Assigned/>;
+  if(key==="learning")return <Resources/>;
+  if(key==="assessments"||key==="question-bank")return <Assessments/>;
+  if(key==="training-sessions")return <Schedule session/>;
+  if(key==="availability")return <Schedule/>;
+  if(key==="calendar")return <Part2Page view="calendar"/>;
+  if(key==="results")return <Monitoring/>;
+  if(key==="evaluations")return <Part3ModulePage/>;
+  if(key==="evidence-review")return <Part3BPage/>;
+  if(key==="feedback")return <TrainerFeedback/>;
+  if(key==="train-the-trainer")return <Ttt/>;
+  if(key==="ttt-candidates")return <Ttt candidates/>;
+  return <Dashboard/>;
+}
