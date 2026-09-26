@@ -2,6 +2,46 @@
 
 Dated, newest-first. `[x]` = has executed automated evidence. `[ ]` = unimplemented or device/live acceptance only. A file or route is not evidence.
 
+## **Trainer Training Sessions page, 2026-09-26**
+
+Added the last trainer inventory item that had no page at all; sessions existed only as embedded `P2Batch.sessions[]`. Evidence: `npm test --prefix server` → **66 passed / 0 failed** (was 63: +3 in `server/test/training-sessions.test.js`); `npm run build --prefix client` → clean; `npm run test:e2e` → **17 passed**.
+
+- [x] `sessionScheduleFor(actor)` in `services/part3aService.js` + `GET /api/part3/training-sessions` (`trainer` only). It returns the sessions of the batches the trainer is responsible for, each with the coordinator's assignment status and decision reason, and the trainer's own availability window covering it.
+- [x] `Part3Page.jsx` → `TrainingSessions`: a session-load summary and a per-batch session table (competency, required level and qualifications, window, assignment state, availability state).
+- [x] The only trainer-side write is declaring availability for a session window through the existing `POST /api/part3/availability`. Declaring unavailability flags an overlapping `ACTIVE` assignment as `UNAVAILABLE` and notifies coordinators. A trainer still cannot schedule a session or assign themselves.
+- [x] Nav entry, route dispatch (`part3Paths`) and page title added; the trainer nav group now matches the inventory.
+- [x] Seed: `demoTrainer.js` adds two sessions and a coordinator-approved `ACTIVE` assignment on the trainer's second batch, so the page has assigned, unassigned, available and undeclared examples.
+- [ ] Live browser walkthrough of the sessions page.
+
+Boundary: the trainer views the schedule and declares availability. Scheduling and trainer assignment remain coordinator decisions.
+
+---
+
+## **Trainer Trainee List corrected and trainer demo roster, 2026-09-26**
+
+The trainer's **Trainee List** (`/trainer/assigned-batches`) rendered the Part 3A session-assignment table, so it showed batches, scope, status and score decisions and **no trainees at all**. It now renders a trainer-scoped trainee roster with recorded progress. Evidence: `npm test --prefix server` → **63 passed / 0 failed** (was 60: +3 in `server/test/trainer-roster.test.js`); `npm run build --prefix client` → clean, 1704 modules.
+
+### Trainer Trainee List (Trainer, Core)
+
+- [x] `rosterFor(actor)` in `services/part3aService.js` derives the trainer's batches from `P3BatchPermission` **and** `ACTIVE | UNAVAILABLE` `P3TrainerAssignment`, reads the confirmed `P2Enrollment` rows, and composes per trainee: published-module completion, assessment attempts and best score, pending/returned/evaluated submissions, latest published result and evidence counts.
+- [x] `GET /api/part3/trainees` (`trainerOrAdmin`). A coordinator is scoped to their own `P3BatchPermission` batches, matching `GET /submissions`.
+- [x] `Part3Page.jsx` renders `TraineeList` for trainers: per-batch cards (course, roster size, published modules, window) plus a trainee table with a learning-progress bar, assessment best score, evaluation state, result, evidence and last activity. The page title was corrected from "Assigned Batches" to "Trainee List".
+- [x] The page states the boundary: learning completion, attempts and scores are recorded activity and never create competency.
+- [x] The trainer **Feedback** page no longer read the trainee-only `submitted` field. A trainer sees scoped aggregates plus the privacy boundary; a coordinator sees the identified `responses` the API already returns.
+
+### Trainer demo dataset
+
+- [x] `server/src/seed/demoTrainer.js` (`seedTrainerWorkspace`) is **additive** and called by `seed:demo` after the Part 2/3 seeds, so the exact counts the Part 2/3 seed tests assert are untouched and no existing suite imports it. It grants the demonstration trainer a second batch, publishes two modules there, confirms six synthetic enrollments (three per batch), records learning progress, authors and reviews a second question, publishes an MCQ and a practical with one evaluated and one pending submission, publishes one result, and records scoped feedback.
+- [ ] Live browser walkthrough of every trainer page against the seeded dataset.
+
+### Documentation
+
+- [x] `page-inventory.md` Trainee List row now matches the code; Trainer "Training Sessions" remains **Partial** with no standalone page.
+
+Boundary: the roster reports recorded activity only. It never infers a level from absence and never writes a competency record.
+
+---
+
 ## **Page inventory, video lectures and continuity removal, 2026-09-26**
 
 Added `docs/page-inventory.md` — the agreed per-role page inventory plus a verified mapping of where each item actually lives. Evidence: `npm test --prefix server` → **60 passed / 0 failed** (was 57: −1 continuity test, +4 media tests); `npm run build --prefix client` → clean, 1704 modules.

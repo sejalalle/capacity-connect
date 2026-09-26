@@ -93,6 +93,7 @@ export const navigationGroups = {
       group: "Delivery & Review",
       items: [
         ["Trainee List", "assigned-batches", UserCheck],
+        ["Training Sessions", "training-sessions", CalendarDays],
         ["Availability Management", "availability", Clock3],
         ["Evaluation Workspace", "evaluations", ClipboardCheck],
         ["Published Results", "results", ShieldCheck],

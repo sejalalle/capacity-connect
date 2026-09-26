@@ -101,6 +101,13 @@ export default function FeedbackPage() {
     },
   ];
 
+  const visibleResponses =
+    user.role === "trainee"
+      ? data?.submitted || []
+      : user.role === "admin"
+        ? data?.responses || []
+        : [];
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -300,14 +307,16 @@ export default function FeedbackPage() {
             )}
           </div>
 
-          {/* Right 5 Columns: Recent Submitted Feedback */}
+          {/* Right 5 Columns: Scoped feedback detail */}
           <div className="lg:col-span-5 bg-white border border-[#D9E3F0] rounded-2xl p-6 shadow-sm">
             <h2 className="text-base font-bold text-[#101B46] m-0 mb-4 pb-4 border-b border-[#D9E3F0]">
-              Your submitted feedback
+              {user.role === "admin"
+                ? "Identified responses"
+                : "Your submitted feedback"}
             </h2>
-            {data.submitted?.length ? (
+            {visibleResponses.length ? (
               <div className="space-y-4">
-                {data.submitted.map((x) => (
+                {visibleResponses.map((x) => (
                   <div key={x._id} className="p-3.5 bg-[#F5F8FC] border border-[#D9E3F0] rounded-xl text-xs space-y-1">
                     <div className="flex items-center justify-between">
                       <strong className="text-[#101B46] font-semibold">{x.targetType}</strong>
@@ -322,8 +331,17 @@ export default function FeedbackPage() {
               </div>
             ) : (
               <EmptyState
-                title="No feedback submitted"
-                description="Your saved responses will appear here."
+                title={
+                  user.role === "trainee"
+                    ? "No feedback submitted"
+                    : "No responses in your scope"
+                }
+                description={
+                  user.role === "trainee"
+                    ? "Your saved responses will appear here."
+                    : data.privacy ||
+                      "You see scoped rating aggregates. Participant names and comments remain hidden."
+                }
               />
             )}
           </div>

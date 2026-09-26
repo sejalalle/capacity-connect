@@ -4,6 +4,7 @@ import connectDB from "../config/db.js";
 import User from "../models/User.js";
 import { seedPart2 } from "./demoPart2.js";
 import { seedPart3 } from "./demoPart3.js";
+import { seedTrainerWorkspace } from "./demoTrainer.js";
 if (process.env.NODE_ENV === "production")
   throw new Error("Demo seed is disabled in production");
 try {
@@ -14,7 +15,8 @@ try {
   });
   if (!admin) throw new Error("Run the administrator seed first");
   const part2 = await seedPart2(admin);
-  await seedPart3(admin, part2);
+  const part3 = await seedPart3(admin, part2);
+  await seedTrainerWorkspace(admin, part2, part3);
   console.log(
     "Synthetic Part 2, Part 3A and Part 3B datasets created with traceable admission, trainer, assessment, evidence and competency-decision records.",
   );

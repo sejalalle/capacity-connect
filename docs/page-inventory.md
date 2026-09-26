@@ -94,11 +94,11 @@ Scope labels follow `AGENTS.md`: **Core**, **Demo integration**, **Later**, **Pr
 | Trainer Dashboard | Trainer Dashboard → `/trainer` | Implemented |
 | Training Calendar | Training Calendar → `/trainer/calendar` | Implemented |
 | Availability Management | Availability Management → `/trainer/availability` | Implemented |
-| Trainee List | Trainee List → `/trainer/assigned-batches` | Implemented (assigned batches and their trainees) |
+| Trainee List | Trainee List → `/trainer/assigned-batches` | Implemented (assigned batches with the trainees confirmed into them, and their learning, assessment, evaluation, result and evidence progress) |
 | Course Management | Course Management → `/trainer/courses` | Implemented |
 | Resource Library | Resource Library → `/trainer/learning` | Implemented (includes recorded-lecture upload with processing status) |
 | Question Bank | Question Bank → `/trainer/question-bank` | Implemented |
-| Training Sessions | — | Partial. Sessions are embedded in batches and surfaced through Trainee List; there is no standalone sessions page. |
+| Training Sessions | Training Sessions → `/trainer/training-sessions` | Implemented (the trainer's batch sessions with the coordinator's assignment status and the trainer's own declared availability) |
 | Evaluation Workspace | Evaluation Workspace → `/trainer/evaluations` | Implemented |
 | Trainer Profile | Trainer Profile → `/trainer/trainer-profile` | Implemented |
 | Feedback | Feedback → `/trainer/feedback` | Implemented |

@@ -26,12 +26,14 @@ import {
   resultsFor,
   reviewExpertise,
   reviewQuestion,
+  rosterFor,
   saveAttempt,
   changeLearningModuleStatus,
   reviseLearningModule,
   saveLearningModule,
   updateLearningModule,
   saveTrainerProfile,
+  sessionScheduleFor,
   startAttempt,
   submitAttempt,
   submitExpertise,
@@ -365,6 +367,14 @@ router.post(
       "Trainer assignment confirmed",
       201,
     ),
+);
+
+router.get("/trainees", trainerOrAdmin, async (req, res) =>
+  ok(res, await rosterFor(req.user)),
+);
+
+router.get("/training-sessions", trainer, async (req, res) =>
+  ok(res, await sessionScheduleFor(req.user)),
 );
 
 router.get("/learning", all, async (req, res) =>

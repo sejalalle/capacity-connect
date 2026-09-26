@@ -16,7 +16,8 @@ import { part3 } from "../../services/part3Service";
 const TITLES = {
   "trainer-profile": "Trainer Profile & Expertise",
   availability: "Trainer Availability",
-  "assigned-batches": "Assigned Batches",
+  "assigned-batches": "Trainee List",
+  "training-sessions": "Training Sessions",
   "trainer-discovery": "Trainer Discovery",
   "trainer-assignments": "Assignment Management",
   learning: "Learning Delivery",
@@ -96,6 +97,9 @@ export default function Part3Page() {
   const endpoint = useMemo(() => {
     if (segment === "trainer-profile") return "/trainer-profile";
     if (segment === "availability") return "/availability";
+    if (segment === "assigned-batches" && user.role === "trainer")
+      return "/trainees";
+    if (segment === "training-sessions") return "/training-sessions";
     if (segment === "learning") return "/learning";
     if (segment === "question-bank") return "/questions";
     if (segment === "assessments")
@@ -188,6 +192,18 @@ export default function Part3Page() {
         act={act}
       />
     );
+  else if (segment === "training-sessions")
+    content = (
+      <TrainingSessions
+        data={data}
+        form={form}
+        setForm={setForm}
+        busy={busy}
+        act={act}
+      />
+    );
+  else if (segment === "assigned-batches" && user.role === "trainer")
+    content = <TraineeList data={data} />;
   else if (
     ["assigned-batches", "trainer-discovery", "trainer-assignments"].includes(
       segment,
@@ -469,6 +485,301 @@ function Availability({ data, form, setForm, busy, act }) {
         >
           Save availability
         </button>
+      </Card>
+    </div>
+  );
+}
+
+function TrainingSessions({ data, form, setForm, busy, act }) {
+  const batches = data?.batches || [];
+  const summary = data?.summary || {};
+  const declare = (session, available) =>
+    act(
+      () =>
+        part3.post("/availability", {
+          start: new Date(session.start).toISOString(),
+          end: new Date(session.end).toISOString(),
+          available,
+          reason:
+            form.reason ||
+            (available
+              ? "Trainer declared availability for this scheduled session."
+              : "Trainer declared unavailability for this scheduled session."),
+          deliveryModes: ["ONLINE", "BLENDED"],
+          locations: [
+            session.batch?.location || "Demonstration Training Centre",
+          ],
+          preferenceScore: 1,
+        }),
+      available ? "Availability recorded" : "Unavailability recorded",
+    );
+  const stats = [
+    ["Scheduled sessions", summary.total ?? 0],
+    ["Active assignments", summary.assigned ?? 0],
+    ["Flagged unavailable", summary.unavailable ?? 0],
+    ["Upcoming", summary.upcoming ?? 0],
+  ];
+  return (
+    <div className="dashboard-grid">
+      <Card
+        title="Session load"
+        subtitle="Sessions belong to batches. The coordinator schedules them and confirms who delivers them."
+        className="span-2"
+      >
+        <div className="card-grid">
+          {stats.map(([label, value]) => (
+            <div className="recommendation" key={label}>
+              <strong>{value}</strong>
+              <small>{label}</small>
+            </div>
+          ))}
+        </div>
+      </Card>
+      {batches.map((batch) => (
+        <Card
+          key={batch._id}
+          title={batch.name || batch.course?.title}
+          subtitle={`${batch.course?.title || "—"} · ${fmt(batch.startDate)} — ${fmt(batch.endDate)}`}
+          action={<StatusBadge status={batch.status} />}
+          className="span-2"
+        >
+          <Table
+            headers={[
+              "Session",
+              "Competency",
+              "Window",
+              "My assignment",
+              "My availability",
+              "Declare",
+            ]}
+            rows={batch.sessions.map((session) => [
+              <div>
+                <strong>{session.title}</strong>
+                <div className="muted">{session.subject}</div>
+              </div>,
+              <div>
+                <div>{session.competency?.name || "—"}</div>
+                {session.requiredProficiency && (
+                  <div className="muted">
+                    Requires level {session.requiredProficiency}
+                  </div>
+                )}
+                {session.requiredQualifications.length > 0 && (
+                  <div className="muted">
+                    {session.requiredQualifications.join(", ")}
+                  </div>
+                )}
+              </div>,
+              `${fmt(session.start)} — ${fmt(session.end)}`,
+              session.assignment ? (
+                <div>
+                  <StatusBadge status={session.assignment.status} />
+                  {session.assignment.decisionReason && (
+                    <div className="muted">
+                      {session.assignment.decisionReason}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                "Not assigned"
+              ),
+              session.availability ? (
+                <StatusBadge
+                  status={
+                    session.availability.available ? "AVAILABLE" : "UNAVAILABLE"
+                  }
+                />
+              ) : (
+                "No window declared"
+              ),
+              <button
+                className="button button-secondary"
+                disabled={busy}
+                onClick={() =>
+                  setForm({ ...form, window: session._id, reason: "" })
+                }
+              >
+                Declare availability
+              </button>,
+            ])}
+          />
+          {batch.sessions.map((session) =>
+            form.window === session._id ? (
+              <div className="recommendation" key={`window-${session._id}`}>
+                <strong>Declare availability — {session.title}</strong>
+                <p className="context-note">
+                  Declaring unavailability for this window flags an active
+                  assignment for coordinator review. Only the coordinator
+                  reassigns a session.
+                </p>
+                <label>
+                  Reason *
+                  <textarea
+                    value={form.reason || ""}
+                    onChange={(e) => setForm({ ...form, reason: e.target.value })}
+                  />
+                </label>
+                <div className="button-row">
+                  <button
+                    className="button button-primary"
+                    disabled={busy || !form.reason}
+                    onClick={async () => {
+                      if (await declare(session, true)) setForm({});
+                    }}
+                  >
+                    Available
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    disabled={busy || !form.reason}
+                    onClick={async () => {
+                      if (await declare(session, false)) setForm({});
+                    }}
+                  >
+                    Unavailable
+                  </button>
+                </div>
+              </div>
+            ) : null,
+          )}
+        </Card>
+      ))}
+      {!batches.length && (
+        <Card className="span-2">
+          <EmptyState
+            title="No scheduled sessions"
+            description="Sessions appear here once a coordinator schedules them for a batch you deliver."
+          />
+        </Card>
+      )}
+      <Card title="Scheduling boundary">
+        <p>
+          A trainer cannot schedule or assign themselves to a session. Declaring
+          availability records a preference and may raise a coordinator review.
+        </p>
+      </Card>
+    </div>
+  );
+}
+
+function TraineeList({ data }) {
+  const batches = data?.batches || [];
+  const rows = data?.rows || [];
+  const learningLabel = (row) =>
+    row.learning.total
+      ? `${row.learning.completed}/${row.learning.total} modules`
+      : "No published modules";
+  return (
+    <div className="dashboard-grid">
+      <Card
+        title="Assigned batches"
+        subtitle="Batches you may deliver. The roster is derived from confirmed admissions."
+        className="span-2"
+      >
+        {batches.length ? (
+          <div className="card-grid">
+            {batches.map((batch) => (
+              <div className="recommendation" key={batch._id}>
+                <div className="flex-between">
+                  <strong>{batch.name || batch.course?.title}</strong>
+                  <StatusBadge status={batch.status} />
+                </div>
+                <p>{batch.course?.title}</p>
+                <small>
+                  {batch.traineeCount} trainee
+                  {batch.traineeCount === 1 ? "" : "s"} · {batch.moduleCount}{" "}
+                  published module{batch.moduleCount === 1 ? "" : "s"}
+                </small>
+                <small>
+                  {fmt(batch.startDate)} — {fmt(batch.endDate)}
+                  {batch.location ? ` · ${batch.location}` : ""}
+                </small>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            title="No assigned batches"
+            description="Batches appear here once a coordinator grants you delivery duties."
+          />
+        )}
+      </Card>
+      <Card title="Trainees and recorded progress" className="span-2">
+        <Table
+          headers={[
+            "Trainee",
+            "Batch",
+            "Learning",
+            "Assessments",
+            "Evaluations",
+            "Result",
+            "Evidence",
+            "Last activity",
+          ]}
+          rows={rows.map((row) => [
+            <div>
+              <strong>{row.trainee?.name}</strong>
+              <div className="muted">{row.trainee?.designation}</div>
+            </div>,
+            row.batch?.name || row.batch?.course?.title,
+            <div>
+              <div className="flex-between">
+                <small>{learningLabel(row)}</small>
+                <small>
+                  {row.learning.total ? `${row.learning.percent}%` : "—"}
+                </small>
+              </div>
+              <div
+                style={{
+                  background: "#E3EAF5",
+                  borderRadius: 999,
+                  height: 6,
+                  marginTop: 4,
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${row.learning.percent}%`,
+                    background: "#155CC4",
+                    height: "100%",
+                  }}
+                />
+              </div>
+            </div>,
+            row.assessments.submitted
+              ? `${row.assessments.submitted} submitted · best ${row.assessments.bestPercentage}%`
+              : "Not attempted",
+            row.evaluations.pending ? (
+              <StatusBadge status="PENDING_EVALUATION" />
+            ) : row.evaluations.returned ? (
+              <StatusBadge status="RETURNED_FOR_REVISION" />
+            ) : row.evaluations.evaluated ? (
+              `${row.evaluations.evaluated} evaluated`
+            ) : (
+              "—"
+            ),
+            row.result ? (
+              <>
+                <StatusBadge status={row.result.outcome} />{" "}
+                {row.result.percentage}%
+              </>
+            ) : (
+              "Not published"
+            ),
+            row.evidence.total
+              ? `${row.evidence.verified} verified · ${row.evidence.pending} pending`
+              : "None",
+            fmt(row.lastActivityAt),
+          ])}
+        />
+      </Card>
+      <Card title="Progress boundary">
+        <p>
+          Learning completion, attempts and scores are recorded activity. They do
+          not create competency. A competency level is established only by an
+          authorized human decision on reviewed evidence.
+        </p>
       </Card>
     </div>
   );

@@ -26,7 +26,7 @@ Project status: **demonstration application using synthetic data**. Not an offic
 | `server/src/models/` | `User.js`, `Part2.js`, `Part3.js` (all models; `make()` factory) |
 | `server/src/routes/` | Small route files mounted in `src/app.js` |
 | `server/src/services/` | Business rules |
-| `server/src/seed/` | Synthetic data (`createAdmin`, `createDemo`, `demoPart2`, `demoPart3`) |
+| `server/src/seed/` | Synthetic data (`createAdmin`, `createDemo`, `demoPart2`, `demoPart3`, `demoTrainer`) |
 | `server/test/` | Backend suites (`*.test.js`) + `e2e-server.js` |
 | `tests/` | Playwright specs |
 | `docs/` | This documentation set |

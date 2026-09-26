@@ -27,8 +27,9 @@ test("Part 3A role screens remain available alongside scoped Part 3B modules", a
   ).toBeVisible();
   await page.goto("/trainer/assigned-batches");
   await expect(
-    page.getByText(/Sample Radar Interpretation.*guided session/),
+    page.getByRole("heading", { name: "Trainee List", exact: true }),
   ).toBeVisible();
+  await expect(page.getByText("Tara Jain")).toBeVisible();
   await page.goto("/trainer/learning");
   await expect(
     page.getByText("Sample Radar Product Foundations"),

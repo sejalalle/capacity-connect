@@ -9,7 +9,7 @@ Snapshot date: **2026-09-26**. This is the **actual**, not the target. Inspect c
 | 1 | Competency workflow spine | Registered → approved → profile → gap → training need → nomination → admission → learning → assessment → evaluation → result → evidence → human decision → passport. DB-backed and tested. | AI assistance is strictly explanation/drafting; human decisions remain authoritative. |
 | 2 | Trainee side | Passport, gaps, training needs, nominations, learning, assessments, evidence, follow-ups, certificates all mounted. **AI gap and course recommendation explanations** available. | AI explanations provide reasoning context; never modify records. |
 | 3 | Supporting trainee features | Calendar (list), notifications, feedback, certificates, **achievements**, **trainer match** mounted with **AI 1-line match justifications**, and **video lectures** (upload → processing → ready, inline playback that resumes). | Calendar is not a month grid. Video is direct upload only — no transcoding or HLS; playback is not evidence. |
-| 4 | Trainer side | Profile/expertise, availability, assignments, learning delivery, question bank, assessments, evaluations, results, evidence review, competency decisions mounted. | No dedicated resources-only or sessions-only page. |
+| 4 | Trainer side | Profile/expertise, availability, assignments, **trainee roster with recorded progress** (`GET /api/part3/trainees`), **training sessions with assignment and availability state** (`GET /api/part3/training-sessions`), learning delivery, question bank, assessments, evaluations, results, evidence review, competency decisions mounted. | No dedicated resources-only page. A trainer declares availability but cannot schedule a session or assign themselves. |
 | 5 | Train the Trainer | **New.** Program → nomination → accept → teaching practice → evaluation → admin verification. Verification creates reviewed expertise and promotes a trainee to trainer. | Eligibility thresholds are proposed config; live demo acceptance pending. |
 | 6 | Admin side | Users/approval, competency framework, job-role requirements, courses, batches, nominations, audit, dashboards. | No force-role change outside TTT; reports are tables, no charts. |
 | 7 | Organizational capability | `GET /api/part3/capability` coverage with `NOT_ASSESSED` separated. | Application-level indicator, not a forecast. |
@@ -33,7 +33,7 @@ Snapshot date: **2026-09-26**. This is the **actual**, not the target. Inspect c
 - **Client pages (new):** `client/src/pages/ttt/TttPage.jsx`, `pages/demand/TrainingDemandPage.jsx`, `pages/announcements/AnnouncementsPage.jsx`, `pages/achievements/AchievementsPage.jsx`, `pages/trainer/TrainerMatchPage.jsx`, `pages/media/MediaLibraryPage.jsx`, `components/media/VideoLibrary.jsx`.
 - **Client wiring:** `client/src/utils/navigation.js` (nav + route generation) and `client/src/routes/AppRoutes.jsx` (page dispatch).
 - **Page scope:** `docs/page-inventory.md` is the agreed per-role page list and its verified mapping to code.
-- **Seed:** `server/src/seed/demoPart2.js`, `demoPart3.js` (now seeds a TTT program, a nominated candidate, an evaluated practice and announcements).
+- **Seed:** `server/src/seed/demoPart2.js`, `demoPart3.js`, `demoTrainer.js` (Part 2/3 seeds plus an additive trainer workspace: a second batch, rosters with progress, a pending evaluation and scoped feedback; also seeds a TTT program, a nominated candidate, an evaluated practice and announcements).
 
 ## Run commands
 

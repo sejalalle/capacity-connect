@@ -42,6 +42,7 @@ const part3Paths = new Set([
   "trainer-profile",
   "availability",
   "assigned-batches",
+  "training-sessions",
   "learning",
   "question-bank",
   "assessments",

@@ -1504,6 +1504,288 @@ export async function recoverExpiredAttempts() {
   return attempts.length;
 }
 
+// Trainer-facing trainee roster: the trainees confirmed into the batches a
+// trainer is responsible for, with their recorded learning and assessment
+// progress. Reading progress never changes a competency record.
+export async function rosterFor(actor) {
+  const batchIds =
+    actor.role === "admin"
+      ? await P3.P3BatchPermission.find({ user: actor._id }).distinct("batch")
+      : [
+          ...new Set(
+            (
+              await Promise.all([
+                P3.P3BatchPermission.find({ user: actor._id }).distinct(
+                  "batch",
+                ),
+                P3.P3TrainerAssignment.find({
+                  trainer: actor._id,
+                  status: { $in: ["ACTIVE", "UNAVAILABLE"] },
+                }).distinct("batch"),
+              ])
+            )
+              .flat()
+              .map((row) => String(row)),
+          ),
+        ];
+  const [batchRows, enrollments] = await Promise.all([
+    P2.P2Batch.find({ _id: { $in: batchIds } })
+      .populate({ path: "course", select: "title code" })
+      .sort({ startDate: 1 })
+      .lean(),
+    P2.P2Enrollment.find({ batch: { $in: batchIds }, status: "CONFIRMED" })
+      .populate("trainee", "name email department designation")
+      .populate({ path: "batch", populate: { path: "course" } })
+      .sort({ createdAt: 1 })
+      .lean(),
+  ]);
+  const rows = enrollments.filter((row) => row.trainee && row.batch);
+  const enrollmentIds = rows.map((row) => row._id);
+  const traineeIds = rows.map((row) => row.trainee._id);
+  const [modules, progress, attempts, submissions, results, evidence] =
+    await Promise.all([
+      P3.P3LearningModule.find({
+        batch: { $in: batchIds },
+        status: "PUBLISHED",
+      })
+        .select("batch")
+        .lean(),
+      P3.P3LearningProgress.find({
+        enrollment: { $in: enrollmentIds },
+      }).lean(),
+      P3.P3AssessmentAttempt.find({
+        enrollment: { $in: enrollmentIds },
+        status: { $in: ["SUBMITTED", "TIMED_OUT"] },
+      }).lean(),
+      P3.P3AssessmentSubmission.find({ enrollment: { $in: enrollmentIds } })
+        .populate({ path: "assessment", select: "title type" })
+        .lean(),
+      P3.P3ResultVersion.find({
+        enrollment: { $in: enrollmentIds },
+        status: "PUBLISHED",
+      }).lean(),
+      P3.P3Evidence.find({ owner: { $in: traineeIds } })
+        .select("owner status")
+        .lean(),
+    ]);
+  const moduleCount = new Map();
+  for (const module of modules) {
+    const key = id(module.batch);
+    moduleCount.set(key, (moduleCount.get(key) || 0) + 1);
+  }
+  const pendingEvaluation = ["SUBMITTED", "UNDER_EVALUATION"];
+  const pendingEvidence = ["SUBMITTED", "UNDER_REVIEW"];
+  return {
+    batches: batchRows.map((batch) => ({
+      _id: batch._id,
+      name: batch.name,
+      status: batch.status,
+      startDate: batch.startDate,
+      endDate: batch.endDate,
+      location: batch.location,
+      deliveryMode: batch.deliveryMode,
+      course: batch.course
+        ? { _id: batch.course._id, title: batch.course.title }
+        : null,
+      moduleCount: moduleCount.get(id(batch._id)) || 0,
+      traineeCount: rows.filter((row) => same(row.batch._id, batch._id)).length,
+    })),
+    rows: rows.map((row) => {
+      const own = progress.filter((item) => same(item.enrollment, row._id));
+      const completed = own.filter(
+        (item) => item.status === "COMPLETED",
+      ).length;
+      const total = moduleCount.get(id(row.batch._id)) || 0;
+      const ownAttempts = attempts.filter((item) =>
+        same(item.enrollment, row._id),
+      );
+      const ownSubmissions = submissions.filter((item) =>
+        same(item.enrollment, row._id),
+      );
+      const result = results
+        .filter((item) => same(item.enrollment, row._id))
+        .sort((a, b) => (b.version || 0) - (a.version || 0))[0];
+      const ownEvidence = evidence.filter((item) =>
+        same(item.owner, row.trainee._id),
+      );
+      const lastActivityAt =
+        [
+          ...own.map((item) => item.completedAt || item.viewedAt),
+          ...ownAttempts.map((item) => item.submittedAt),
+          ...ownSubmissions.map((item) => item.submittedAt),
+        ]
+          .filter(Boolean)
+          .sort((a, b) => new Date(b) - new Date(a))[0] || null;
+      return {
+        enrollment: row._id,
+        trainee: row.trainee,
+        batch: {
+          _id: row.batch._id,
+          name: row.batch.name,
+          course: row.batch.course
+            ? { _id: row.batch.course._id, title: row.batch.course.title }
+            : null,
+        },
+        learning: {
+          completed,
+          total,
+          inProgress: own.filter((item) => item.status === "IN_PROGRESS")
+            .length,
+          percent: total ? Math.round((completed / total) * 100) : 0,
+        },
+        assessments: {
+          submitted: ownAttempts.length,
+          bestPercentage: ownAttempts.length
+            ? ownAttempts.reduce(
+                (best, item) => Math.max(best, item.percentage || 0),
+                0,
+              )
+            : null,
+        },
+        evaluations: {
+          pending: ownSubmissions.filter((item) =>
+            pendingEvaluation.includes(item.status),
+          ).length,
+          returned: ownSubmissions.filter(
+            (item) => item.status === "RETURNED_FOR_REVISION",
+          ).length,
+          evaluated: ownSubmissions.filter(
+            (item) => item.status === "EVALUATED",
+          ).length,
+        },
+        result: result
+          ? {
+              status: result.status,
+              outcome: result.outcome,
+              percentage: result.percentage,
+              version: result.version,
+            }
+          : null,
+        evidence: {
+          total: ownEvidence.length,
+          pending: ownEvidence.filter((item) =>
+            pendingEvidence.includes(item.status),
+          ).length,
+          verified: ownEvidence.filter((item) => item.status === "VERIFIED")
+            .length,
+        },
+        lastActivityAt,
+      };
+    }),
+  };
+}
+
+// Trainer-facing session schedule: the sessions of the batches a trainer is
+// responsible for, with the coordinator's assignment decision and the
+// trainer's own declared availability for each session window. The trainer
+// cannot assign themselves — only the coordinator confirms an assignment.
+export async function sessionScheduleFor(actor) {
+  const batchIds = [
+    ...new Set(
+      (
+        await Promise.all([
+          P3.P3BatchPermission.find({ user: actor._id }).distinct("batch"),
+          P3.P3TrainerAssignment.find({ trainer: actor._id }).distinct("batch"),
+        ])
+      )
+        .flat()
+        .map((row) => String(row)),
+    ),
+  ];
+  const [batches, assignments, availability] = await Promise.all([
+    P2.P2Batch.find({ _id: { $in: batchIds } })
+      .populate({ path: "course", select: "title code" })
+      .populate("sessions.competency", "name code")
+      .sort({ startDate: 1 })
+      .lean(),
+    P3.P3TrainerAssignment.find({ trainer: actor._id })
+      .sort({ assignedAt: -1 })
+      .lean(),
+    P3.P3TrainerAvailability.find({ trainer: actor._id })
+      .sort({ start: 1 })
+      .lean(),
+  ]);
+  const assignmentFor = new Map();
+  for (const row of assignments) {
+    const key = id(row.sessionId);
+    if (!assignmentFor.has(key)) assignmentFor.set(key, row);
+  }
+  const sessions = [];
+  const batchesOut = batches.map((batch) => ({
+    _id: batch._id,
+    name: batch.name,
+    status: batch.status,
+    startDate: batch.startDate,
+    endDate: batch.endDate,
+    deliveryMode: batch.deliveryMode,
+    location: batch.location,
+    course: batch.course
+      ? { _id: batch.course._id, title: batch.course.title }
+      : null,
+    sessions: (batch.sessions || []).map((session) => {
+      const assignment = assignmentFor.get(id(session._id)) || null;
+      const covered = availability.find(
+        (row) =>
+          new Date(row.start) <= new Date(session.start) &&
+          new Date(row.end) >= new Date(session.end),
+      );
+      const row = {
+        _id: session._id,
+        title: session.title,
+        subject: session.subject,
+        competency: session.competency || null,
+        requiredProficiency: session.requiredProficiency,
+        requiredQualifications: session.requiredQualifications || [],
+        start: session.start,
+        end: session.end,
+        batch: {
+          _id: batch._id,
+          name: batch.name,
+          location: batch.location,
+          course: batch.course
+            ? { _id: batch.course._id, title: batch.course.title }
+            : null,
+        },
+        assignment: assignment
+          ? {
+              status: assignment.status,
+              decisionReason: assignment.decisionReason || "",
+              scopeTitle: assignment.scopeTitle || "",
+              assignedAt: assignment.assignedAt,
+            }
+          : null,
+        availability: covered
+          ? {
+              _id: covered._id,
+              start: covered.start,
+              end: covered.end,
+              available: covered.available,
+              reason: covered.reason,
+            }
+          : null,
+      };
+      sessions.push(row);
+      return row;
+    }),
+  }));
+  const active = (row) => row.assignment && row.assignment.status === "ACTIVE";
+  return {
+    batches: batchesOut,
+    summary: {
+      total: sessions.length,
+      assigned: sessions.filter(active).length,
+      unavailable: sessions.filter(
+        (row) => row.assignment && row.assignment.status === "UNAVAILABLE",
+      ).length,
+      declined: sessions.filter(
+        (row) => row.availability && !row.availability.available,
+      ).length,
+      upcoming: sessions.filter((row) => row.start && new Date(row.start) > now())
+        .length,
+    },
+  };
+}
+
 // Trainee-facing trainer matching: "here is your trainer, and here is why".
 // Reveals only the selected trainer for the trainee's own sessions.
 export async function trainerMatchFor(trainee, filters = {}) {
