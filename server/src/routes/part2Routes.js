@@ -16,10 +16,11 @@ import {
   notify,
   recordAudit,
 } from "../services/part2Service.js";
+import { runReminders } from "../services/reminderService.js";
 
 const router = Router();
 router.use((req, res, next) =>
-  /^\/(dashboard|competencies|job-roles|competency-records|gaps|training-needs|learning-paths|courses|batches|nominations|calendar|notifications|audit)(\/|$)/.test(
+  /^\/(dashboard|competencies|job-roles|competency-records|gaps|trainees|training-needs|learning-paths|courses|batches|nominations|calendar|notifications|audit)(\/|$)/.test(
     req.path,
   )
     ? auth(req, res, next)
@@ -518,6 +519,154 @@ router.get("/gaps/me", roles(["trainee"]), async (req, res) =>
 router.get("/gaps/:traineeId", admin, async (req, res) =>
   ok(res, await gapsFor(objectId(req.params.traineeId))),
 );
+
+// A reviewed baseline record is how a new employee's initial level is
+// established from historical evidence. It is a human record, distinct from an
+// assessment score, and it never replaces a Part 3 reviewed decision.
+router.post("/competency-records/:traineeId/baseline", admin, async (req, res) => {
+  const traineeId = objectId(req.params.traineeId);
+  const trainee = await mongoose.model("User").findById(traineeId).lean();
+  if (!trainee) fail(404, "Trainee not found");
+  const competency = await M.P2Competency.findById(
+    objectId(req.body.competency),
+  ).lean();
+  if (!competency) fail(404, "Competency not found");
+  if (competency.status !== "PUBLISHED")
+    fail(409, "Only a published competency version can back a baseline record");
+  const level = positiveInteger(
+    req.body.demonstratedLevel,
+    "Demonstrated level",
+    5,
+  );
+  if (!competency.levels.some((row) => row.value === level))
+    fail(400, "Select a level defined by this competency version");
+  const sourceReference = requiredText(
+    req.body.sourceReference,
+    "Baseline evidence reference",
+    500,
+  );
+  const assessedAt = req.body.assessedAt
+    ? new Date(req.body.assessedAt)
+    : new Date();
+  if (Number.isNaN(assessedAt.getTime())) fail(400, "Assessed date is invalid");
+  const existing = await M.P2CompetencyRecord.findOne({
+    trainee: traineeId,
+    competency: competency._id,
+    frameworkVersion: competency.version,
+  }).lean();
+  if (
+    existing?.sourceType === "PART3_REVIEW" &&
+    (existing.demonstratedLevel ?? 0) >= level
+  )
+    fail(
+      409,
+      "A reviewed Part 3 decision already records this level or higher. A baseline cannot lower or replace it.",
+    );
+  const row = await M.P2CompetencyRecord.findOneAndUpdate(
+    {
+      trainee: traineeId,
+      competency: competency._id,
+      frameworkVersion: competency.version,
+    },
+    {
+      $set: {
+        demonstratedLevel: level,
+        status: "DEMONSTRATED",
+        sourceType: "HISTORICAL_REVIEW",
+        sourceReference,
+        assessedAt,
+        reviewer: req.user._id,
+        notes: req.body.notes ? String(req.body.notes).slice(0, 1000) : null,
+      },
+      $setOnInsert: {
+        trainee: traineeId,
+        competency: competency._id,
+        frameworkVersion: competency.version,
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  );
+  await recordAudit({
+    actor: req.user._id,
+    action: "BASELINE_COMPETENCY_RECORDED",
+    entityType: "CompetencyRecord",
+    entityId: row._id,
+    newStatus: row.status,
+    changes: {
+      trainee: String(traineeId),
+      competency: String(competency._id),
+      demonstratedLevel: level,
+      sourceReference,
+    },
+    reason:
+      "Coordinator recorded a reviewed baseline level from historical evidence",
+  });
+  ok(
+    res.status(201),
+    row,
+    "Baseline level recorded from reviewed historical evidence",
+  );
+});
+
+// Previous training is historical evidence. It is recorded by a coordinator and
+// is read-only afterwards; it never sets a competency level on its own.
+router.get("/trainees/:traineeId/course-completions", allRoles, async (req, res) => {
+  const traineeId = objectId(req.params.traineeId);
+  if (req.user.role === "trainee" && !same(req.user._id, traineeId))
+    fail(403, "You can only read your own previous training records");
+  ok(
+    res,
+    await M.P2CourseCompletion.find({ trainee: traineeId })
+      .populate("course recordedBy")
+      .sort({ completedAt: -1 })
+      .lean(),
+  );
+});
+router.post("/trainees/:traineeId/course-completions", admin, async (req, res) => {
+  const traineeId = objectId(req.params.traineeId);
+  const trainee = await mongoose.model("User").findById(traineeId).lean();
+  if (!trainee) fail(404, "Trainee not found");
+  const course = await M.P2Course.findById(objectId(req.body.course)).lean();
+  if (!course) fail(404, "Course not found");
+  const completedAt = req.body.completedAt
+    ? new Date(req.body.completedAt)
+    : new Date();
+  if (Number.isNaN(completedAt.getTime()))
+    fail(400, "Completed date is invalid");
+  const sourceReference = requiredText(
+    req.body.sourceReference,
+    "Source reference",
+    500,
+  );
+  const row = await M.P2CourseCompletion.findOneAndUpdate(
+    { trainee: traineeId, course: course._id },
+    {
+      $setOnInsert: {
+        trainee: traineeId,
+        course: course._id,
+        completedAt,
+        sourceReference,
+        recordedBy: req.user._id,
+        readOnly: true,
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  );
+  await recordAudit({
+    actor: req.user._id,
+    action: "PREVIOUS_TRAINING_RECORDED",
+    entityType: "CourseCompletion",
+    entityId: row._id,
+    changes: {
+      trainee: String(traineeId),
+      course: String(course._id),
+      completedAt,
+    },
+    reason:
+      "Coordinator recorded a historical course completion as previous training",
+  });
+  ok(res.status(201), row, "Previous training recorded");
+});
 
 router.get("/training-needs", allRoles, async (req, res) =>
   ok(
@@ -1150,6 +1299,19 @@ router.get("/notifications/unread-count", allRoles, async (req, res) =>
       readAt: null,
     }),
   }),
+);
+// Time-driven reminders run on a schedule and can be run on demand here. The run
+// emits notices only; it never changes workflow state.
+router.post("/notifications/reminders/run", admin, async (req, res) =>
+  ok(
+    res,
+    await runReminders({
+      ...(req.body.withinDays != null && {
+        withinDays: Math.min(30, Math.max(1, Number(req.body.withinDays))),
+      }),
+    }),
+    "Reminder scan completed",
+  ),
 );
 router.get("/audit", admin, async (req, res) =>
   ok(

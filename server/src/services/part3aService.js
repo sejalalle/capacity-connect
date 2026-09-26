@@ -5,6 +5,7 @@ import * as P2 from "../models/Part2.js";
 import * as P3 from "../models/Part3.js";
 import { HttpError } from "../middleware/errorHandler.js";
 import { recordPart3Audit, requirePermission } from "./part3Service.js";
+import { gapsFor } from "./part2Service.js";
 
 const fail = (status, message) => {
   throw new HttpError(status, message);
@@ -917,13 +918,16 @@ const validateQuestion = (data) => {
 };
 
 export async function createQuestion(actor, data) {
-  await requirePermission(actor, data.batch, "MANAGE_QUESTION_BANK");
-  validateQuestion(data);
-  const latest = await P3.P3Question.findOne({ questionKey: data.questionKey })
+  // `batch` only scopes the permission check; P3Question has no such field and
+  // the models reject unknown keys.
+  const { batch, ...question } = data;
+  await requirePermission(actor, batch, "MANAGE_QUESTION_BANK");
+  validateQuestion(question);
+  const latest = await P3.P3Question.findOne({ questionKey: question.questionKey })
     .sort({ version: -1 })
     .lean();
-  const question = await P3.P3Question.create({
-    ...data,
+  const row = await P3.P3Question.create({
+    ...question,
     version: (latest?.version || 0) + 1,
     author: actor._id,
     status: "DRAFT",
@@ -931,11 +935,11 @@ export async function createQuestion(actor, data) {
   await recordPart3Audit(
     actor,
     "QUESTION_CREATED",
-    question,
+    row,
     "Question draft created",
     { answerKey: "redacted" },
   );
-  return question;
+  return row;
 }
 
 export async function reviewQuestion(actor, questionId, reason) {
@@ -1786,6 +1790,80 @@ export async function sessionScheduleFor(actor) {
   };
 }
 
+// Trainer relevance for the trainee's own competency gap, so matching answers
+// "which trainer fits the gap this role requires?" rather than only the
+// competency of a session the trainee happens to be enrolled in.
+const OPEN_GAP_CATEGORIES = [
+  "ONE_LEVEL_GAP",
+  "TWO_LEVEL_GAP",
+  "THREE_OR_MORE_LEVEL_GAP",
+  "NOT_ASSESSED",
+];
+async function gapTrainerMatches(trainee) {
+  const gaps = (await gapsFor(trainee._id)).filter((row) =>
+    OPEN_GAP_CATEGORIES.includes(row.category),
+  );
+  if (!gaps.length) return [];
+  const expertise = await P3.P3TrainerExpertise.find({
+    competency: { $in: gaps.map((row) => row.competency._id) },
+    status: { $in: ["REVIEWED", "APPROVED"] },
+  }).lean();
+  const trainerIds = expertise.map((row) => row.trainer);
+  const [trainers, windows] = await Promise.all([
+    User.find({
+      _id: { $in: trainerIds },
+      role: "trainer",
+      accountStatus: "approved",
+    })
+      .select("name")
+      .lean(),
+    P3.P3TrainerAvailability.find({ trainer: { $in: trainerIds } }).lean(),
+  ]);
+  return gaps.map((gap) => {
+    const candidates = expertise
+      .filter(
+        (row) =>
+          same(row.competency, gap.competency._id) &&
+          row.frameworkVersion === gap.frameworkVersion &&
+          row.approvedLevel >= gap.requiredLevel,
+      )
+      .map((row) => {
+        const trainer = trainers.find((item) => same(item._id, row.trainer));
+        if (!trainer) return null;
+        const declared = windows.filter(
+          (window) => same(window.trainer, row.trainer) && window.available,
+        );
+        return {
+          trainer: { _id: trainer._id, name: trainer.name },
+          reviewedLevel: row.approvedLevel,
+          relevantExperienceYears: row.relevantExperienceYears ?? null,
+          teachingYears: row.teachingYears ?? null,
+          availability: declared.length ? "DECLARED" : "NOT_DECLARED",
+          declaredAvailabilityWindows: declared.length,
+          explanation: `${trainer.name} holds reviewed expertise in ${gap.competency.name} at L${row.approvedLevel}, which meets the L${gap.requiredLevel} this role requires. ${
+            declared.length
+              ? `Availability is declared for ${declared.length} window${declared.length === 1 ? "" : "s"}.`
+              : "No availability window is declared yet."
+          }`,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.reviewedLevel - a.reviewedLevel);
+    return {
+      competency: {
+        _id: gap.competency._id,
+        code: gap.competency.code,
+        name: gap.competency.name,
+      },
+      requiredLevel: gap.requiredLevel,
+      demonstratedLevel: gap.demonstratedLevel,
+      gap: gap.gap,
+      category: gap.category,
+      trainers: candidates,
+    };
+  });
+}
+
 // Trainee-facing trainer matching: "here is your trainer, and here is why".
 // Reveals only the selected trainer for the trainee's own sessions.
 export async function trainerMatchFor(trainee, filters = {}) {
@@ -1822,7 +1900,7 @@ export async function trainerMatchFor(trainee, filters = {}) {
       const reasons = [];
       for (const f of selected?.factors || [])
         if (f.contribution > 0)
-          reasons.push(`${f.description} (+${f.contribution} points)`);
+          reasons.push(`${f.source} (+${f.contribution} points)`);
       for (const c of selected?.checks || [])
         if (c.outcome === "PASS") reasons.push(c.explanation);
       sessions.push({
@@ -1849,6 +1927,7 @@ export async function trainerMatchFor(trainee, filters = {}) {
   }
   return {
     matches,
+    gapMatches: await gapTrainerMatches(trainee),
     note: "Matches show why a trainer fits your sessions. A coordinator makes and records the final assignment.",
   };
 }

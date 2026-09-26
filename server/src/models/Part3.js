@@ -1035,6 +1035,29 @@ export const P3TTTNomination = make(
   ],
 );
 
+// Train-the-Trainer learning: the stage between starting a nomination and
+// teaching practice. Completion here is learning activity only; it never
+// creates reviewed expertise.
+export const P3TTTLearning = make(
+  "P3TTTLearning",
+  {
+    nomination: oid("P3TTTNomination"),
+    candidate: oid("User"),
+    program: oid("P3TTTProgram"),
+    course: oid("P2Course"),
+    status: {
+      type: String,
+      enum: ["NOT_STARTED", "IN_PROGRESS", "COMPLETED"],
+      default: "NOT_STARTED",
+    },
+    progressPercent: { type: Number, min: 0, max: 100, default: 0 },
+    startedAt: Date,
+    completedAt: Date,
+    ...synthetic,
+  },
+  [[{ nomination: 1, course: 1 }, { unique: true }]],
+);
+
 export const P3TTTPractice = make(
   "P3TTTPractice",
   {

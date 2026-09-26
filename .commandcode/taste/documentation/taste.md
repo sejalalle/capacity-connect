@@ -13,3 +13,5 @@
 - Docs should explicitly distinguish fixtures, simulated integrations, real services and unimplemented plans, and never imply demo/synthetic data is real. Confidence: 0.85
 - The "Read first" list exists as a throttle so an agent doesn't re-read every doc on every task — keep it minimal and current. Confidence: 0.8
 - Implementation checklists should mark items that have automated evidence distinctly from those that are only device/live-acceptance or unimplemented; a file or route existing is not evidence. Confidence: 0.8
+- Wants the stated/expected product flow (the product owner's step-by-step requirement narrative) stored verbatim as its own markdown doc in `docs/` and treated as the acceptance/test basis. Confidence: 0.75
+- Wants a companion coverage ledger to that expected-flow doc: one row per expected step with a status of Implemented / Partial / Missing, the concrete code evidence (file/route/page), the executed-test evidence, and what is specifically absent. Confidence: 0.75

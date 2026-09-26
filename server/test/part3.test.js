@@ -194,6 +194,52 @@ test("suitability applies mandatory checks and exact 100-point contributions", a
     .expect(403);
 });
 
+test("trainee trainer matching explains every match and answers the trainee's own gap", async () => {
+  const response = await request(app)
+    .get("/api/part3/trainer-match")
+    .set(auth(trainee))
+    .expect(200);
+  const report = response.body.data;
+  assert.ok(report.note.includes("coordinator"));
+
+  const reasons = report.matches.flatMap((match) =>
+    match.sessions.flatMap((session) => session.reasons),
+  );
+  assert.ok(reasons.length, "a recommended session must carry reasons");
+  assert.ok(
+    reasons.every((reason) => !reason.includes("undefined")),
+    JSON.stringify(reasons),
+  );
+  assert.ok(
+    reasons.some((reason) => reason.includes("points")),
+    "factor reasons must name the factor and its contribution",
+  );
+
+  const gapRows = report.gapMatches;
+  assert.ok(Array.isArray(gapRows) && gapRows.length);
+  for (const row of gapRows) {
+    assert.ok(row.competency.name);
+    assert.ok(row.requiredLevel >= 1);
+    for (const candidate of row.trainers) {
+      assert.ok(
+        candidate.reviewedLevel >= row.requiredLevel,
+        "a gap match must meet the required level",
+      );
+      assert.ok(candidate.explanation.includes("reviewed expertise"));
+      assert.ok(!candidate.explanation.includes("undefined"));
+    }
+  }
+  assert.ok(
+    gapRows.some((row) => row.trainers.length),
+    "the seeded reviewed trainer must be surfaced for a gap",
+  );
+
+  await request(app)
+    .get("/api/part3/trainer-match")
+    .set(auth(admin))
+    .expect(403);
+});
+
 test("partial unavailability overrides a wider available window and planning remains coordinator-scoped", async () => {
   const row = await P3.P3TrainerAvailability.create({
     trainer: trainer._id,
@@ -472,6 +518,118 @@ test("reviewed question and published assessment versions cannot be silently alt
       sourceReference: "Synthetic validation source",
     });
   assert.equal(invalid.status, 400);
+});
+
+test("a question needs an independent reviewer before it can be published into an assessment", async () => {
+  await P3.P3BatchPermission.create({
+    batch: part3.batch._id,
+    user: part3.trainers[0]._id,
+    actions: ["MANAGE_QUESTION_BANK", "CREATE_ASSESSMENT"],
+    grantedBy: admin._id,
+    reason: "Synthetic independent reviewer grant for the review-chain test.",
+    isSynthetic: true,
+    demoNamespace: "part3-review-chain",
+  });
+
+  let response = await request(app)
+    .post("/api/part3/questions")
+    .set(auth(trainer))
+    .send({
+      batch: part3.batch._id,
+      course: part3.batch.course,
+      subject: "Weather Radar",
+      questionKey: "SYN_REVIEW_CHAIN",
+      text: "Which product best shows the radial velocity of a storm?",
+      options: [
+        { optionId: "A", text: "Base reflectivity product" },
+        { optionId: "B", text: "Radial velocity product" },
+      ],
+      correctOptionId: "B",
+      marks: 1,
+      explanation: "Radial velocity shows motion toward or away from the radar.",
+      sourceReference: "Synthetic radar product reference",
+      provenance: { type: "MANUAL" },
+    });
+  assert.equal(response.status, 201, JSON.stringify(response.body));
+  const question = response.body.data;
+  assert.equal(question.status, "DRAFT");
+
+  await request(app)
+    .post(`/api/part3/questions/${question._id}/review`)
+    .set(auth(trainer))
+    .send({ reason: "The author must not perform the independent review." })
+    .expect(403);
+
+  const draftBody = {
+    batch: String(part3.batch._id),
+    course: String(part3.batch.course),
+    title: "Synthetic review-chain assessment",
+    type: "MCQ",
+    instructions: "Synthetic assessment used to verify the review chain.",
+    opensAt: new Date(Date.now() - 3600000).toISOString(),
+    closesAt: new Date(Date.now() + 3600000).toISOString(),
+    durationMinutes: 20,
+    attemptLimit: 1,
+    passingScore: 50,
+    resultReleasePolicy: "ON_PUBLICATION",
+    questionIds: [String(question._id)],
+  };
+
+  response = await request(app)
+    .post("/api/part3/assessments")
+    .set(auth(trainer))
+    .send(draftBody);
+  assert.equal(response.status, 409, JSON.stringify(response.body));
+
+  response = await request(app)
+    .post(`/api/part3/questions/${question._id}/review`)
+    .set(auth(part3.trainers[0]))
+    .send({ reason: "Independently reviewed against the cited approved source." });
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.equal(response.body.data.status, "REVIEWED");
+
+  response = await request(app)
+    .post("/api/part3/assessments")
+    .set(auth(trainer))
+    .send(draftBody);
+  assert.equal(response.status, 201, JSON.stringify(response.body));
+  const assessment = response.body.data;
+  assert.equal(assessment.status, "DRAFT");
+
+  response = await request(app)
+    .post(`/api/part3/assessments/${assessment._id}/publish`)
+    .set(auth(trainer))
+    .send({ reason: "Reviewed and ready for delivery." });
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.equal(response.body.data.status, "PUBLISHED");
+
+  const recordsBefore = await P2.P2CompetencyRecord.countDocuments();
+  response = await request(app)
+    .post(`/api/part3/assessments/${assessment._id}/attempts/start`)
+    .set(auth(trainee))
+    .send({});
+  assert.equal(response.status, 201, JSON.stringify(response.body));
+  assert.ok(response.body.data.attempt.questionOrder.length >= 1);
+  assert.equal(
+    JSON.stringify(response.body.data).includes("correctOptionId"),
+    false,
+    "an answer key must never reach a trainee response",
+  );
+  assert.equal(
+    await P2.P2CompetencyRecord.countDocuments(),
+    recordsBefore,
+    "publishing and attempting an assessment never creates a competency record",
+  );
+
+  // Restore the shared fixture: later suites prepare a result for this batch and
+  // must not see an extra published assessment.
+  await P3.P3AssessmentAttempt.deleteMany({ assessment: assessment._id });
+  await P3.P3Assessment.deleteOne({ _id: assessment._id });
+  await P3.P3Question.deleteOne({ _id: question._id });
+  await P3.P3BatchPermission.deleteOne({
+    batch: part3.batch._id,
+    user: part3.trainers[0]._id,
+  });
 });
 
 test("practical evaluation requires assigned evaluator and enforces rubric limits", async () => {

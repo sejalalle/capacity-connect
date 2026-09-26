@@ -328,3 +328,198 @@ test("pinned rule version remains unchanged after a newer course rule is publish
     pinned,
   );
 });
+
+test("coordinator assigns the professional role that competency requirements are mapped against", async () => {
+  const operator = await User.create({
+    name: "Synthetic Unassigned Operator",
+    email: "unassigned-operator@example.test",
+    password: "DemoOnly!2026",
+    role: "trainee",
+    accountStatus: "approved",
+  });
+  const before = await request(app).get("/api/gaps/me").set(auth(operator));
+  assert.equal(before.status, 200);
+  assert.deepEqual(before.body.data, []);
+
+  let response = await request(app)
+    .patch(`/api/users/${operator._id}/job-role`)
+    .set(auth(operator))
+    .send({ jobRole: String(seed.role._id) });
+  assert.equal(response.status, 403);
+
+  response = await request(app)
+    .patch(`/api/users/${operator._id}/job-role`)
+    .set(auth(admin))
+    .send({ jobRole: "000000000000000000000000" });
+  assert.equal(response.status, 404);
+
+  response = await request(app)
+    .patch(`/api/users/${operator._id}/job-role`)
+    .set(auth(admin))
+    .send({ jobRole: String(seed.role._id) });
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.equal(String(response.body.data.user.jobRole), String(seed.role._id));
+
+  const after = await request(app).get("/api/gaps/me").set(auth(operator));
+  assert.equal(after.status, 200, JSON.stringify(after.body));
+  assert.ok(
+    after.body.data.length > 0,
+    "an assigned professional role must produce mapped requirements",
+  );
+  assert.ok(after.body.data.every((row) => row.category === "NOT_ASSESSED"));
+
+  const audit = await M.P2AuditLog.findOne({
+    action: "PROFESSIONAL_ROLE_ASSIGNED",
+    entityId: operator._id,
+  });
+  assert.ok(audit);
+  assert.equal(String(audit.changes.to), String(seed.role._id));
+
+  response = await request(app)
+    .patch(`/api/users/${operator._id}/job-role`)
+    .set(auth(admin))
+    .send({ jobRole: null });
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  const cleared = await request(app).get("/api/gaps/me").set(auth(operator));
+  assert.deepEqual(cleared.body.data, []);
+});
+
+test("baseline and previous-training records supply initial evidence without deciding a level on their own", async () => {
+  const newcomer = await User.create({
+    name: "Synthetic Newcomer",
+    email: "synthetic-newcomer@example.test",
+    password: "DemoOnly!2026",
+    role: "trainee",
+    accountStatus: "approved",
+    jobRole: seed.role._id,
+  });
+  const competency = seed.competencies[0];
+
+  await request(app)
+    .post(`/api/competency-records/${newcomer._id}/baseline`)
+    .set(auth(newcomer))
+    .send({
+      competency: competency._id,
+      demonstratedLevel: 2,
+      sourceReference: "Self-declared baseline",
+    })
+    .expect(403);
+
+  let response = await request(app)
+    .post(`/api/competency-records/${newcomer._id}/baseline`)
+    .set(auth(admin))
+    .send({
+      competency: competency._id,
+      demonstratedLevel: 6,
+      sourceReference: "Baseline practical observation",
+    });
+  assert.equal(response.status, 400, JSON.stringify(response.body));
+
+  response = await request(app)
+    .post(`/api/competency-records/${newcomer._id}/baseline`)
+    .set(auth(admin))
+    .send({
+      competency: competency._id,
+      demonstratedLevel: 2,
+      sourceReference: "Baseline practical observation, reviewed",
+    });
+  assert.equal(response.status, 201, JSON.stringify(response.body));
+  assert.equal(response.body.data.status, "DEMONSTRATED");
+  assert.equal(response.body.data.sourceType, "HISTORICAL_REVIEW");
+  assert.equal(response.body.data.demonstratedLevel, 2);
+  assert.equal(String(response.body.data.reviewer), String(admin._id));
+
+  const gaps = await request(app).get("/api/gaps/me").set(auth(newcomer));
+  const radar = gaps.body.data.find(
+    (row) => String(row.competency._id) === String(competency._id),
+  );
+  assert.equal(radar.demonstratedLevel, 2);
+  assert.notEqual(radar.category, "NOT_ASSESSED");
+
+  await M.P2CompetencyRecord.updateOne(
+    {
+      trainee: newcomer._id,
+      competency: competency._id,
+      frameworkVersion: competency.version,
+    },
+    { sourceType: "PART3_REVIEW" },
+  );
+  response = await request(app)
+    .post(`/api/competency-records/${newcomer._id}/baseline`)
+    .set(auth(admin))
+    .send({
+      competency: competency._id,
+      demonstratedLevel: 2,
+      sourceReference: "Attempt to lower a reviewed decision",
+    });
+  assert.equal(response.status, 409, JSON.stringify(response.body));
+  assert.equal(
+    (
+      await M.P2CompetencyRecord.findOne({
+        trainee: newcomer._id,
+        competency: competency._id,
+      })
+    ).demonstratedLevel,
+    2,
+  );
+
+  response = await request(app)
+    .post(`/api/trainees/${newcomer._id}/course-completions`)
+    .set(auth(admin))
+    .send({
+      course: seed.courses[0]._id,
+      completedAt: "2025-06-01",
+      sourceReference: "IMD training centre completion register",
+    });
+  assert.equal(response.status, 201, JSON.stringify(response.body));
+  const completionId = response.body.data._id;
+
+  response = await request(app)
+    .post(`/api/trainees/${newcomer._id}/course-completions`)
+    .set(auth(admin))
+    .send({
+      course: seed.courses[0]._id,
+      sourceReference: "Duplicate register entry",
+    });
+  assert.equal(response.status, 201, JSON.stringify(response.body));
+  assert.equal(String(response.body.data._id), String(completionId));
+  assert.equal(
+    await M.P2CourseCompletion.countDocuments({ trainee: newcomer._id }),
+    1,
+  );
+
+  response = await request(app)
+    .get(`/api/trainees/${newcomer._id}/course-completions`)
+    .set(auth(newcomer));
+  assert.equal(response.status, 200);
+  assert.equal(response.body.data.length, 1);
+  assert.equal(response.body.data[0].course.title, seed.courses[0].title);
+
+  await request(app)
+    .get(`/api/trainees/${newcomer._id}/course-completions`)
+    .set(auth(seed.trainees[1]))
+    .expect(403);
+  await request(app)
+    .post(`/api/trainees/${newcomer._id}/course-completions`)
+    .set(auth(newcomer))
+    .send({ course: seed.courses[0]._id, sourceReference: "Self-recorded" })
+    .expect(403);
+
+  const baselineRecord = await M.P2CompetencyRecord.findOne({
+    trainee: newcomer._id,
+    competency: competency._id,
+    frameworkVersion: competency.version,
+  });
+  assert.ok(
+    await M.P2AuditLog.exists({
+      action: "BASELINE_COMPETENCY_RECORDED",
+      entityId: baselineRecord._id,
+    }),
+  );
+  assert.ok(
+    await M.P2AuditLog.exists({
+      action: "PREVIOUS_TRAINING_RECORDED",
+      entityId: completionId,
+    }),
+  );
+});

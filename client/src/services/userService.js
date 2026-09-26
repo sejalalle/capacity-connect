@@ -8,4 +8,8 @@ export const userService = {
     api
       .patch(`/users/${id}/status`, { accountStatus })
       .then((r) => r.data.data.user),
+  jobRole: (id, jobRole) =>
+    api
+      .patch(`/users/${id}/job-role`, { jobRole })
+      .then((r) => r.data.data.user),
 };

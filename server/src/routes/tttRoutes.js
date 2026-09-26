@@ -12,9 +12,11 @@ import {
   nominateCandidate,
   nominationFor,
   practicesFor,
+  recordTttLearning,
   savePractice,
   saveProgram,
   transitionNomination,
+  tttLearningFor,
   verifyTrainer,
 } from "../services/tttService.js";
 
@@ -116,6 +118,27 @@ router.post(
         req.body,
       ),
       "Nomination updated",
+    ),
+);
+router.get("/ttt/nominations/:id/learning", all, async (req, res) =>
+  ok(res, await tttLearningFor(req.user, objectId.parse(req.params.id))),
+);
+router.post(
+  "/ttt/nominations/:id/learning",
+  roles(["trainee"]),
+  body({
+    course: objectId,
+    progressPercent: z.number().min(0).max(100),
+  }),
+  async (req, res) =>
+    ok(
+      res,
+      await recordTttLearning(
+        req.user,
+        objectId.parse(req.params.id),
+        req.body,
+      ),
+      "Train-the-Trainer learning progress recorded",
     ),
 );
 router.post(

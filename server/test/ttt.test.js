@@ -115,6 +115,58 @@ test("nomination, acceptance, teaching practice and evaluation follow the workfl
   assert.equal(response.body.data.status, "ACCEPTED");
 
   response = await request(app)
+    .post(`/api/part3/ttt/nominations/${nomination._id}/transitions`)
+    .set(auth(candidate))
+    .send({ action: "START", reason: "Starting Train-the-Trainer learning." });
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.equal(response.body.data.status, "IN_PROGRESS");
+
+  response = await request(app)
+    .get(`/api/part3/ttt/nominations/${nomination._id}/learning`)
+    .set(auth(candidate));
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  const learning = response.body.data;
+  assert.ok(learning.total >= 1, "the program must list a Train-the-Trainer course");
+  assert.equal(learning.completed, 0);
+  assert.equal(learning.gate, "TTT_LEARNING_REQUIRED");
+  assert.ok(
+    learning.items.every((item) => item.status === "NOT_STARTED"),
+  );
+
+  response = await request(app)
+    .get(`/api/part3/ttt/nominations/${nomination._id}/learning`)
+    .set(auth(p2.trainees[5]));
+  assert.equal(response.status, 403);
+
+  response = await request(app)
+    .post(`/api/part3/ttt/nominations/${nomination._id}/teaching-practice`)
+    .set(auth(candidate))
+    .send({
+      sessionTitle: "Premature teaching practice session",
+      responseText: "Submitted before Train-the-Trainer learning was complete.",
+    });
+  assert.equal(response.status, 409, JSON.stringify(response.body));
+
+  response = await request(app)
+    .post(`/api/part3/ttt/nominations/${nomination._id}/learning`)
+    .set(auth(candidate))
+    .send({ course: program.courses[0]._id, progressPercent: 100 });
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.equal(response.body.data.gate, "READY_FOR_TEACHING_PRACTICE");
+  assert.equal(response.body.data.completed, learning.total);
+
+  const expertiseBefore = await P3.P3TrainerExpertise.findOne({
+    trainer: candidate._id,
+    competency: program.competency,
+    frameworkVersion: program.frameworkVersion,
+  }).lean();
+  assert.equal(
+    expertiseBefore,
+    null,
+    "Train-the-Trainer learning completion must not create reviewed expertise",
+  );
+
+  response = await request(app)
     .post(`/api/part3/ttt/nominations/${nomination._id}/teaching-practice`)
     .set(auth(candidate))
     .send({
@@ -174,6 +226,15 @@ test("admin verification creates reviewed expertise and promotes the candidate t
   const beforeRole = await User.findById(candidate._id).lean();
   assert.equal(beforeRole.role, "trainee");
 
+  const coverageBefore = await request(app)
+    .get("/api/part3/capability")
+    .set(auth(admin));
+  assert.equal(coverageBefore.status, 200, JSON.stringify(coverageBefore.body));
+  const radarBefore = coverageBefore.body.data.coverage.find(
+    (row) => String(row.competency._id) === String(program.competency),
+  );
+  assert.ok(radarBefore, "the program competency must appear in coverage");
+
   let response = await request(app)
     .post(`/api/part3/ttt/nominations/${nomination._id}/verify`)
     .set(auth(admin))
@@ -195,6 +256,19 @@ test("admin verification creates reviewed expertise and promotes the candidate t
 
   const afterRole = await User.findById(candidate._id).lean();
   assert.equal(afterRole.role, "trainer");
+
+  // The organizational loop closes: verification raises the reported trainer pool.
+  const coverageAfter = await request(app)
+    .get("/api/part3/capability")
+    .set(auth(admin));
+  const radarAfter = coverageAfter.body.data.coverage.find(
+    (row) => String(row.competency._id) === String(program.competency),
+  );
+  assert.equal(
+    radarAfter.reviewedTrainerCount,
+    radarBefore.reviewedTrainerCount + 1,
+    "a verified trainer must increase the reviewed trainer pool",
+  );
 
   response = await request(app)
     .post(`/api/part3/ttt/nominations/${nomination._id}/verify`)

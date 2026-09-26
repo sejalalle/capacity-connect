@@ -7,6 +7,7 @@ import validate, {
   idSchema,
   profileSchema,
   statusSchema,
+  jobRoleSchema,
 } from "../middleware/validate.js";
 const router = Router();
 router.use(auth);
@@ -37,5 +38,12 @@ router.patch(
   validate(idSchema, "params"),
   validate(statusSchema),
   controller.status,
+);
+router.patch(
+  "/:id/job-role",
+  roles(["admin"]),
+  validate(idSchema, "params"),
+  validate(jobRoleSchema),
+  controller.jobRole,
 );
 export default router;

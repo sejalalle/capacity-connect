@@ -955,6 +955,25 @@ export async function seedPart3(admin, part2) {
     },
   );
 
+  // The ready candidate reached teaching practice, so the programme learning
+  // that gates it is recorded as complete. Learning stays learning: the
+  // reviewed expertise only appears when the coordinator verifies.
+  for (const courseId of tttProgram.courses || [])
+    await upsert(
+      P3.P3TTTLearning,
+      { nomination: tttReady._id, course: courseId },
+      {
+        nomination: tttReady._id,
+        candidate: tttCandidate._id,
+        program: tttProgram._id,
+        course: courseId,
+        status: "COMPLETED",
+        progressPercent: 100,
+        startedAt: days(-10),
+        completedAt: days(-9),
+      },
+    );
+
   const announcements = [
     {
       title: "New radar interpretation course published",

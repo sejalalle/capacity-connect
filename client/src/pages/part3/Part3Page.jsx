@@ -13,6 +13,12 @@ import VideoLibrary from "../../components/media/VideoLibrary";
 import { errorMessage } from "../../services/api";
 import { part3 } from "../../services/part3Service";
 
+const splitIds = (value) =>
+  String(value || "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
 const TITLES = {
   "trainer-profile": "Trainer Profile & Expertise",
   availability: "Trainer Availability",
@@ -987,8 +993,20 @@ function Questions({ data, form, setForm, busy, act }) {
   return (
     <div className="dashboard-grid">
       <Card title="Reviewed question bank" className="span-2">
+        <p className="context-note">
+          A question is only published into an assessment after an independent
+          review. The author of a question cannot review it.
+        </p>
         <Table
-          headers={["Key", "Question", "Course", "Version", "Status", "Source"]}
+          headers={[
+            "Key",
+            "Question",
+            "Course",
+            "Version",
+            "Status",
+            "Source",
+            "Action",
+          ]}
           rows={(data || []).map((item) => [
             item.questionKey,
             item.text,
@@ -996,6 +1014,26 @@ function Questions({ data, form, setForm, busy, act }) {
             item.version,
             <StatusBadge status={item.status} />,
             item.sourceReference,
+            item.status === "REVIEWED" ? (
+              <span className="muted text-xs">Reviewed</span>
+            ) : (
+              <button
+                className="button button-secondary"
+                disabled={busy}
+                onClick={() =>
+                  act(
+                    () =>
+                      part3.post(`/questions/${item._id}/review`, {
+                        reason:
+                          "Independently reviewed against the cited approved source.",
+                      }),
+                    "Question reviewed",
+                  )
+                }
+              >
+                Mark reviewed
+              </button>
+            ),
           ])}
         />
       </Card>
@@ -1222,6 +1260,7 @@ function Assessments({
             "Version",
             "Window",
             "Status",
+            "Action",
           ]}
           rows={rows.map((item) => [
             item.title,
@@ -1230,8 +1269,194 @@ function Assessments({
             item.version,
             `${fmt(item.opensAt)} — ${fmt(item.closesAt)}`,
             <StatusBadge status={item.status} />,
+            item.status === "DRAFT" ? (
+              <button
+                className="button button-secondary"
+                disabled={busy}
+                onClick={() =>
+                  act(
+                    () =>
+                      part3.post(`/assessments/${item._id}/publish`, {
+                        reason:
+                          "Published after independent question review and rubric validation.",
+                      }),
+                    "Assessment published",
+                  )
+                }
+              >
+                Publish
+              </button>
+            ) : (
+              <span className="muted text-xs">{item.status}</span>
+            ),
           ])}
         />
+      </Card>
+      <Card title="Create assessment draft">
+        <p className="context-note">
+          An MCQ draft needs every selected question to be independently
+          reviewed. A practical or written assessment needs a rubric. A draft
+          never reaches a trainee until it is published.
+        </p>
+        <label>
+          Batch ID *
+          <input
+            value={form.batch || ""}
+            onChange={(e) => setForm({ ...form, batch: e.target.value })}
+          />
+        </label>
+        <label>
+          Course ID *
+          <input
+            value={form.course || ""}
+            onChange={(e) => setForm({ ...form, course: e.target.value })}
+          />
+        </label>
+        <label>
+          Title *
+          <input
+            value={form.title || ""}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+          />
+        </label>
+        <label>
+          Type *
+          <select
+            value={form.type || "MCQ"}
+            onChange={(e) => setForm({ ...form, type: e.target.value })}
+          >
+            {["MCQ", "PRACTICAL", "WRITTEN_ASSIGNMENT"].map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Instructions *
+          <textarea
+            value={form.instructions || ""}
+            onChange={(e) => setForm({ ...form, instructions: e.target.value })}
+          />
+        </label>
+        <label>
+          Opens at *
+          <input
+            type="datetime-local"
+            value={form.opensAt || ""}
+            onChange={(e) => setForm({ ...form, opensAt: e.target.value })}
+          />
+        </label>
+        <label>
+          Closes at *
+          <input
+            type="datetime-local"
+            value={form.closesAt || ""}
+            onChange={(e) => setForm({ ...form, closesAt: e.target.value })}
+          />
+        </label>
+        <label>
+          Duration (minutes) *
+          <input
+            type="number"
+            min="1"
+            value={form.durationMinutes || 30}
+            onChange={(e) =>
+              setForm({ ...form, durationMinutes: e.target.value })
+            }
+          />
+        </label>
+        <label>
+          Attempt limit *
+          <input
+            type="number"
+            min="1"
+            value={form.attemptLimit || 1}
+            onChange={(e) => setForm({ ...form, attemptLimit: e.target.value })}
+          />
+        </label>
+        <label>
+          Passing score *
+          <input
+            type="number"
+            min="0"
+            max="100"
+            value={form.passingScore ?? 60}
+            onChange={(e) => setForm({ ...form, passingScore: e.target.value })}
+          />
+        </label>
+        <label>
+          Result release policy *
+          <select
+            value={form.resultReleasePolicy || "ON_PUBLICATION"}
+            onChange={(e) =>
+              setForm({ ...form, resultReleasePolicy: e.target.value })
+            }
+          >
+            {["ON_PUBLICATION", "AFTER_CLOSE", "NEVER"].map((policy) => (
+              <option key={policy} value={policy}>
+                {policy}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Question IDs (comma separated)
+          <input
+            value={form.questionIds || ""}
+            onChange={(e) => setForm({ ...form, questionIds: e.target.value })}
+          />
+        </label>
+        <label>
+          Rubric criterion IDs (comma separated, practical only)
+          <input
+            value={form.rubricCriteria || ""}
+            onChange={(e) =>
+              setForm({ ...form, rubricCriteria: e.target.value })
+            }
+          />
+        </label>
+        <button
+          className="button button-primary"
+          disabled={
+            busy ||
+            !form.batch ||
+            !form.course ||
+            !form.title ||
+            !form.instructions ||
+            !form.opensAt ||
+            !form.closesAt
+          }
+          onClick={() =>
+            act(
+              () =>
+                part3.post("/assessments", {
+                  batch: form.batch,
+                  course: form.course,
+                  title: form.title,
+                  type: form.type || "MCQ",
+                  instructions: form.instructions,
+                  opensAt: new Date(form.opensAt).toISOString(),
+                  closesAt: new Date(form.closesAt).toISOString(),
+                  durationMinutes: Number(form.durationMinutes || 30),
+                  attemptLimit: Number(form.attemptLimit || 1),
+                  passingScore: Number(form.passingScore ?? 60),
+                  resultReleasePolicy:
+                    form.resultReleasePolicy || "ON_PUBLICATION",
+                  questionIds: splitIds(form.questionIds),
+                  rubric: splitIds(form.rubricCriteria).map((criterionId) => ({
+                    criterionId,
+                    label: criterionId,
+                    description: "Reviewed practical criterion.",
+                    maxMarks: 10,
+                  })),
+                }),
+              "Assessment draft created",
+            )
+          }
+        >
+          Create draft
+        </button>
       </Card>
       <Card title="Assessment controls">
         <p>

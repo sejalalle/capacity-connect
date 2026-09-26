@@ -131,9 +131,47 @@ test("training demand links capability gaps to trainer supply", async () => {
     .get("/api/part3/training-demand")
     .set(auth(admin));
   assert.equal(response.status, 200, JSON.stringify(response.body));
-  assert.ok(response.body.data.summary);
-  assert.ok(Array.isArray(response.body.data.rows));
-  assert.match(response.body.data.definition, /demand/i);
+  const report = response.body.data;
+  assert.ok(report.summary);
+  assert.ok(Array.isArray(report.rows));
+  assert.match(report.definition, /demand/i);
+  assert.match(
+    report.chain,
+    /Train-the-Trainer/i,
+    "the demand chain must name the Train-the-Trainer link",
+  );
+
+  const row = report.rows.find((item) => item.gapHeadcount > 0);
+  assert.ok(row, "the seeded data must contain a capability gap");
+  assert.equal(row.requiredHeadcount - row.verifiedHeadcount, row.gapHeadcount);
+  assert.equal(typeof row.trainerCapacityGap, "boolean");
+  assert.equal(
+    row.trainerCapacityGap,
+    row.gapHeadcount > 0 &&
+      row.availableTrainers != null &&
+      row.availableTrainers < row.gapHeadcount,
+    "the capacity gap flag must follow demand against available trainers",
+  );
+  assert.ok(row.eligibleTrainers >= 0);
+  assert.ok(row.recommendedAction);
+  assert.match(
+    row.recommendedAction,
+    row.trainerCapacityGap ? /Train-the-Trainer/i : /batch|coverage/i,
+    "the recommended action must follow the capacity verdict",
+  );
+
+  assert.equal(
+    report.summary.competenciesWithTrainerCapacityGap,
+    report.rows.filter((item) => item.trainerCapacityGap).length,
+  );
+  assert.ok(
+    report.summary.totalPeopleNeedingDevelopment >=
+      report.rows.reduce((sum, item) => sum + item.gapHeadcount, 0),
+  );
+  assert.ok(
+    report.summary.tttInProgress >= 1,
+    "the seeded train-the-trainer nominations must be counted",
+  );
 });
 
 test("training demand is coordinator-only", async () => {

@@ -2,6 +2,41 @@
 
 Dated, newest-first. `[x]` = has executed automated evidence. `[ ]` = unimplemented or device/live acceptance only. A file or route is not evidence.
 
+## **Expected-flow coverage pass, 2026-09-26**
+
+Stored the product owner's stated flow as `docs/expected-flow.md` (test basis), audited all 30 steps against code, and recorded per-step status in the new `docs/flow-coverage.md`. Closed every item in that queue. Evidence: `npm test --prefix server` → **72 passed / 0 failed** (was 66: +1 job-role, +1 baseline/previous-training, +1 trainer-match, +1 review chain, +2 reminders); `npm run build --prefix client` → clean, 1704 modules.
+
+Result: **29 Implemented / 1 Partial / 0 Missing** (was 23 / 7 / 0).
+
+### Part A — trainee (§1, §2, §6)
+
+- [x] `PATCH /api/users/:id/job-role` (`controllers/userController.js`, admin, audited `PROFESSIONAL_ROLE_ASSIGNED`, validated against an `ACTIVE` `P2JobRole`). Previously **nothing** outside the seed wrote `User.jobRole`, so role→requirement mapping was unreachable and `/api/gaps/me` returned `[]` for any real account. Admin → Users assigns it in the user panel.
+- [x] `POST /api/competency-records/:traineeId/baseline` records a reviewed initial level from historical evidence (`sourceType: "HISTORICAL_REVIEW"`, audited `BASELINE_COMPETENCY_RECORDED`) and refuses `409` when a reviewed Part 3 decision already records that level or higher — a baseline can never downgrade a demonstrated level.
+- [x] `GET/POST /api/trainees/:traineeId/course-completions` records previous training (idempotent per trainee+course, read-only afterwards, audited `PREVIOUS_TRAINING_RECORDED`), making the `COURSE_COMPLETION` eligibility rule satisfiable for the first time. The trainee Profile "Previous Training" tab now reads real records instead of two hard-coded rows.
+- [x] **Fixed** trainer-match reasons: `trainerMatchFor` read a field that `factor()` never set, so every weight reason rendered as `undefined (+N points)`. Now reads `f.source`. Added `gapTrainerMatches`, which answers "which trainer fits *my* gap" from reviewed expertise at or above the required level, with declared availability.
+
+### Part B — trainer (§5, §15, §17)
+
+- [x] `P3TTTLearning` + `GET/POST /api/part3/ttt/nominations/:id/learning`: the program's `courses` are now the TTT curriculum, the candidate records progress, and `GET` returns `completed`/`total` plus a `gate`. `savePractice` refuses `409` until every programme course is complete. `TttPage.jsx` shows the plan, the controls and the lock.
+- [x] **Fixed** a latent crash: `createQuestion` spread the route's `batch` key into `P3Question`, which is `strict: "throw"`, so **every** API question creation returned `500`. `batch` now only scopes the permission check.
+- [x] Trainer **Question Bank** gained a *Mark reviewed* action (the author cannot self-review) and **Assessments** gained *Create assessment draft* (batch, course, type, window, limits, questions, rubric) plus *Publish*.
+
+### Part C — organization (§30)
+
+- [x] `services/reminderService.js` with `runReminders()`: `ASSESSMENT_DEADLINE_REMINDER`, `TRAINING_DEADLINE_REMINDER` and `RECOMMENDATION_AVAILABLE`, emitted through the existing deduplicated notification engine so a repeated scan never repeats a notice. Reminder rules mirror `gapsFor` so a notice never contradicts the Skill Gaps page.
+- [x] Scheduler in `server.js` (scan 5s after boot, then every `REMINDER_INTERVAL_MS`, cleared on shutdown) and `POST /api/notifications/reminders/run` (admin) for an on-demand scan.
+
+### Tests closed (previously implemented but unasserted)
+
+- [x] `recommendedCourses[0].explanation` and its batches (#5); the passport history→evidence/decision trail (#11); exact coverage-bucket arithmetic `meeting + below + notAssessed + notComparable === denominator` (#24); the `trainerCapacityGap` verdict and its matching `recommendedAction` (#26); the demand→TTT chain (#27); and `reviewedTrainerCount` increasing by exactly one after a TTT verification (#28).
+
+### Still open
+
+- [ ] **Employee-facing baseline/diagnostic assessment** (#2). An attempt requires `P2Enrollment` and its unique indexes are keyed on it, so a pre-enrolment diagnostic needs a deliberate decision to relax that model. The reviewed baseline record delivers the outcome without weakening validation. Needs an explicit instruction.
+- [ ] Live browser walkthrough of the new controls (admin user panel, TTT learning, trainer question review and assessment authoring, gap-driven trainer match).
+
+---
+
 ## **Trainer Training Sessions page, 2026-09-26**
 
 Added the last trainer inventory item that had no page at all; sessions existed only as embedded `P2Batch.sessions[]`. Evidence: `npm test --prefix server` → **66 passed / 0 failed** (was 63: +3 in `server/test/training-sessions.test.js`); `npm run build --prefix client` → clean; `npm run test:e2e` → **17 passed**.

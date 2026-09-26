@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import mongoose from "mongoose";
-import { P2AuditLog } from "../models/Part2.js";
+import { P2AuditLog, P2JobRole } from "../models/Part2.js";
 import User from "../models/User.js";
 import { HttpError } from "../middleware/errorHandler.js";
 export async function list(req, res) {
@@ -85,4 +85,37 @@ export async function status(req, res) {
     return changed;
   });
   res.json({ success: true, data: { user }, message: `Account ${target}.` });
+}
+export async function jobRole(req, res) {
+  const requested = req.validated.body.jobRole;
+  const user = await User.findById(req.params.id);
+  if (!user) throw new HttpError(404, "User not found");
+  if (requested) {
+    const role = await P2JobRole.exists({
+      _id: requested,
+      status: "ACTIVE",
+    });
+    if (!role)
+      throw new HttpError(404, "Professional role not found or not active");
+  }
+  const previous = user.jobRole ? String(user.jobRole) : null;
+  user.jobRole = requested || undefined;
+  await user.save();
+  await P2AuditLog.create({
+    actor: req.user._id,
+    action: "PROFESSIONAL_ROLE_ASSIGNED",
+    entityType: "User",
+    entityId: user._id,
+    changes: { from: previous, to: requested || null },
+    reason:
+      "Coordinator assigned the professional role that competency requirements are mapped against",
+    correlationId: crypto.randomUUID(),
+  });
+  res.json({
+    success: true,
+    data: { user },
+    message: requested
+      ? "Professional role assigned."
+      : "Professional role cleared.",
+  });
 }

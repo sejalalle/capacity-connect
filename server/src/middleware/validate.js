@@ -138,3 +138,11 @@ export const listSchema = z
 export const statusSchema = z
   .object({ accountStatus: z.enum(["approved", "rejected", "suspended"]) })
   .strict();
+export const jobRoleSchema = z
+  .object({
+    jobRole: z.union([
+      z.string().regex(/^[a-f\d]{24}$/i, "Invalid professional role"),
+      z.null(),
+    ]),
+  })
+  .strict();

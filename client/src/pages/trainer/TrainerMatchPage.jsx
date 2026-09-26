@@ -61,13 +61,61 @@ export default function TrainerMatchPage() {
         </div>
       ) : !report ? (
         <LoadingState />
-      ) : !report.matches.length ? (
+      ) : !report.matches.length && !report.gapMatches.length ? (
         <EmptyState
           title="No sessions to match yet"
-          description="Once you are admitted to a batch with scheduled sessions, your matched trainer will appear here."
+          description="Once you are admitted to a batch with scheduled sessions, or your role has a competency gap, your matched trainer will appear here."
         />
       ) : (
         <>
+          {report.gapMatches.map((match) => (
+            <Card
+              key={match.competency._id}
+              title={match.competency.name}
+              subtitle={`Trainers for the competency your role requires at L${match.requiredLevel}`}
+            >
+              <p className="muted">
+                {match.demonstratedLevel == null
+                  ? "No reviewed level is established yet."
+                  : `Your reviewed level is L${match.demonstratedLevel}.`}{" "}
+                {match.gap == null
+                  ? ""
+                  : `Development is required for ${match.gap} level${match.gap === 1 ? "" : "s"}.`}
+              </p>
+              {match.trainers.length ? (
+                <div className="table-wrap">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Trainer</th>
+                        <th>Reviewed level</th>
+                        <th>Availability</th>
+                        <th>Why this trainer</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {match.trainers.map((row) => (
+                        <tr key={row.trainer._id}>
+                          <td>{row.trainer.name}</td>
+                          <td>L{row.reviewedLevel}</td>
+                          <td>
+                            <StatusBadge status={row.availability} />
+                          </td>
+                          <td>{row.explanation}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="muted">
+                  No trainer currently holds reviewed expertise at the required
+                  level. A coordinator can nominate a subject expert for
+                  Train-the-Trainer.
+                </p>
+              )}
+            </Card>
+          ))}
           {report.matches.map((match) => (
             <Card
               key={match.batch._id}

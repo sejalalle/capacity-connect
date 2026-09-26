@@ -27,6 +27,7 @@ export default function TttPage() {
   const [competencies, setCompetencies] = useState([]);
   const [trainers, setTrainers] = useState([]);
   const [practices, setPractices] = useState({});
+  const [learning, setLearning] = useState({});
   const [eligibility, setEligibility] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -90,6 +91,16 @@ export default function TttPage() {
         ]),
       );
       setPractices(Object.fromEntries(loaded));
+      const learningStates = nom.filter((n) =>
+        ["ACCEPTED", "IN_PROGRESS", "TEACHING_PRACTICE"].includes(n.status),
+      );
+      const learningRows = await Promise.all(
+        learningStates.map(async (n) => [
+          n._id,
+          await part3.get(`/ttt/nominations/${n._id}/learning`),
+        ]),
+      );
+      setLearning(Object.fromEntries(learningRows));
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -482,6 +493,88 @@ export default function TttPage() {
                     </div>
                   )}
 
+                  {learning[nomination._id] && (
+                    <div style={{ marginTop: "0.75rem" }}>
+                      <h4>Train-the-Trainer learning</h4>
+                      <p className="muted text-xs" style={{ marginBottom: 0 }}>
+                        {learning[nomination._id].completed} of{" "}
+                        {learning[nomination._id].total} programme courses
+                        complete.{" "}
+                        {learning[nomination._id].gate ===
+                        "READY_FOR_TEACHING_PRACTICE"
+                          ? "Teaching practice is open."
+                          : learning[nomination._id].gate ===
+                              "NO_LEARNING_REQUIRED"
+                            ? "This programme lists no learning courses."
+                            : "Teaching practice stays locked until every programme course is complete."}
+                      </p>
+                      <ul>
+                        {learning[nomination._id].items.map((item) => (
+                          <li key={item.course._id}>
+                            {item.course.title} — {item.status} (
+                            {item.progressPercent}%)
+                            {!isAdmin && !isTrainer && (
+                              <>
+                                {" "}
+                                <button
+                                  type="button"
+                                  className="button button-ghost"
+                                  style={{
+                                    fontSize: "0.8rem",
+                                    padding: "2px 8px",
+                                  }}
+                                  disabled={busy || item.progressPercent === 50}
+                                  onClick={() =>
+                                    act(
+                                      () =>
+                                        part3.post(
+                                          `/ttt/nominations/${nomination._id}/learning`,
+                                          {
+                                            course: item.course._id,
+                                            progressPercent: 50,
+                                          },
+                                        ),
+                                      "Learning progress recorded",
+                                    )
+                                  }
+                                >
+                                  In progress
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button button-ghost"
+                                  style={{
+                                    fontSize: "0.8rem",
+                                    padding: "2px 8px",
+                                  }}
+                                  disabled={busy || item.status === "COMPLETED"}
+                                  onClick={() =>
+                                    act(
+                                      () =>
+                                        part3.post(
+                                          `/ttt/nominations/${nomination._id}/learning`,
+                                          {
+                                            course: item.course._id,
+                                            progressPercent: 100,
+                                          },
+                                        ),
+                                      "Learning completed",
+                                    )
+                                  }
+                                >
+                                  Mark complete
+                                </button>
+                              </>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="muted text-xs">
+                        {learning[nomination._id].note}
+                      </p>
+                    </div>
+                  )}
+
                   {!isAdmin && !isTrainer && (
                     <div className="button-row">
                       {nomination.status === "NOMINATED" && (
@@ -526,7 +619,10 @@ export default function TttPage() {
                           Start programme
                         </Button>
                       )}
-                      {PRACTICE_STATES.includes(nomination.status) && (
+                      {PRACTICE_STATES.includes(nomination.status) &&
+                        (learning[nomination._id]?.gate ??
+                          "NO_LEARNING_REQUIRED") !==
+                          "TTT_LEARNING_REQUIRED" && (
                         <form
                           className="auth-form"
                           onSubmit={async (e) => {

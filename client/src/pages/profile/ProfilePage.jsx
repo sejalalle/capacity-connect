@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import useAuth from "../../hooks/useAuth";
 import { userService } from "../../services/userService";
+import { part2 } from "../../services/part2Service";
 import { errorMessage, fieldErrors } from "../../services/api";
 import { useToast } from "../../components/ui/Toast";
 import Input from "../../components/ui/Input";
@@ -71,7 +72,8 @@ export default function ProfilePage() {
     [error, setError] = useState(""),
     [errors, setErrors] = useState({}),
     [revision, setRevision] = useState(0),
-    [photoFailed, setPhotoFailed] = useState(false);
+    [photoFailed, setPhotoFailed] = useState(false),
+    [completions, setCompletions] = useState(null);
 
   const tabs = [
     "Personal Details",
@@ -104,6 +106,21 @@ export default function ProfilePage() {
       active = false;
     };
   }, [user._id, revision]);
+
+  useEffect(() => {
+    let active = true;
+    part2
+      .get(`/trainees/${user._id}/course-completions`)
+      .then((rows) => {
+        if (active) setCompletions(Array.isArray(rows) ? rows : []);
+      })
+      .catch(() => {
+        if (active) setCompletions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user._id]);
 
   async function save(e) {
     e.preventDefault();
@@ -462,35 +479,49 @@ export default function ProfilePage() {
 
           {activeTab === "Previous Training" && (
             <div className="bg-white border border-[#D9E3F0] rounded-2xl p-6 shadow-sm">
-              <h3 className="text-base font-bold text-[#101B46] mb-4">
+              <h3 className="text-base font-bold text-[#101B46] m-0 mb-1">
                 Previous Training & Induction
               </h3>
-              <div className="space-y-4">
-                <div className="p-4 bg-[#F5F8FC] border border-[#D9E3F0] rounded-xl flex items-center justify-between text-xs">
-                  <div>
-                    <strong className="text-[#101B46] block font-semibold">
-                      Basic Weather Observations Course
-                    </strong>
-                    <span className="text-[#687181]">IMD Training Centre, Pune · 4 Weeks</span>
-                  </div>
-                  <span className="font-semibold text-[#16A34A] bg-[#DCFCE7] px-2.5 py-1 rounded-full">
-                    Completed
-                  </span>
+              <p className="text-xs text-[#687181] mt-0 mb-4">
+                Recorded by your coordinator. A recorded completion is
+                historical evidence and never sets a competency level on its
+                own.
+              </p>
+              {completions === null ? (
+                <p className="text-xs text-[#687181] m-0">
+                  Loading recorded training…
+                </p>
+              ) : completions.length ? (
+                <div className="space-y-4">
+                  {completions.map((row) => (
+                    <div
+                      key={row._id}
+                      className="p-4 bg-[#F5F8FC] border border-[#D9E3F0] rounded-xl flex items-center justify-between gap-4 text-xs"
+                    >
+                      <div>
+                        <strong className="text-[#101B46] block font-semibold">
+                          {row.course?.title || "Course no longer available"}
+                        </strong>
+                        <span className="text-[#687181]">
+                          Completed{" "}
+                          {dateValue(row.completedAt) || "date not recorded"}
+                          {row.sourceReference
+                            ? ` · ${row.sourceReference}`
+                            : ""}
+                        </span>
+                      </div>
+                      <span className="font-semibold text-[#16A34A] bg-[#DCFCE7] px-2.5 py-1 rounded-full whitespace-nowrap">
+                        Recorded
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                <div className="p-4 bg-[#F5F8FC] border border-[#D9E3F0] rounded-xl flex items-center justify-between text-xs">
-                  <div>
-                    <strong className="text-[#101B46] block font-semibold">
-                      Introduction to Synoptic Meteorology
-                    </strong>
-                    <span className="text-[#687181]">
-                      National Weather Forecasting Centre · 2 Weeks
-                    </span>
-                  </div>
-                  <span className="font-semibold text-[#16A34A] bg-[#DCFCE7] px-2.5 py-1 rounded-full">
-                    Completed
-                  </span>
-                </div>
-              </div>
+              ) : (
+                <p className="text-xs text-[#687181] m-0">
+                  No previous training has been recorded yet. Your coordinator
+                  records historical completions.
+                </p>
+              )}
             </div>
           )}
 

@@ -381,6 +381,35 @@ test("a valid human decision updates the correct record and revocation recalcula
     competency: p2.competencies[0]._id,
   });
   assert.equal(record.demonstratedLevel, 3);
+
+  // The passport must explain the status: which evidence and which decision
+  // produced the recorded level.
+  const passport = await request(app)
+    .get("/api/part3/competency-passport")
+    .set(auth(trainee));
+  assert.equal(passport.status, 200, JSON.stringify(passport.body));
+  const trail = passport.body.data.history.filter(
+    (entry) =>
+      String(entry.competency?._id || entry.competency) ===
+      String(p2.competencies[0]._id),
+  );
+  assert.ok(trail.length, "the passport must expose the competency history");
+  assert.equal(
+    String(trail[0].evidence?._id || trail[0].evidence),
+    String(row._id),
+    "a history entry must resolve the evidence behind the level",
+  );
+  assert.ok(trail[0].reviewer, "a history entry must resolve the reviewer");
+  assert.ok(
+    passport.body.data.decisions.some(
+      (decision) =>
+        String(decision._id) === String(decided.body.data._id) &&
+        decision.status === "ACTIVE" &&
+        String(decision.evidence?._id || decision.evidence) === String(row._id),
+    ),
+    "the passport must list the active decision with its evidence",
+  );
+
   await request(app)
     .post(`/api/part3/competency-decisions/${decided.body.data._id}/supersede`)
     .set(auth(reviewer))
@@ -420,11 +449,19 @@ test("gap and capability analytics keep unknown data separate and count distinct
     (x) => x.competency.code === "SYN-RAD-01",
   );
   assert.equal(radar.denominator, 10);
-  assert.equal(radar.meetingCount <= radar.denominator, true);
   assert.equal(
-    radar.notAssessedCount + radar.belowRequiredCount + radar.meetingCount <=
-      radar.denominator,
-    true,
+    radar.meetingCount +
+      radar.belowRequiredCount +
+      radar.notAssessedCount +
+      radar.notComparableCount,
+    radar.denominator,
+    "every required person must fall into exactly one coverage bucket",
+  );
+  assert.ok(radar.belowRequiredCount >= 1, "a demonstrated level below the requirement is counted as below");
+  assert.ok(
+    [radar.meetingCount, radar.belowRequiredCount, radar.notAssessedCount].every(
+      (value) => Number.isInteger(value) && value >= 0,
+    ),
   );
   const dated = await request(app)
     .get(

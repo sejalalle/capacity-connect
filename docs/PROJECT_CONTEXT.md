@@ -50,6 +50,7 @@ Demo accounts (after seeding): `asha.sharma@example.test`, `trainee2..10@example
 
 - Roles: `trainee`, `trainer`, `admin`. Registration allows only trainee/trainer; admin is seeded. A `trainee` is promoted to `trainer` only by TTT verification.
 - Account status: `pending`, `approved`, `rejected`, `suspended`. Non-approved accounts cannot log in.
+- `User.jobRole` is the **professional** role (for example Forecasting Officer) that competency requirements are mapped against. It is set by a coordinator and is unrelated to the access role.
 
 ## Known gaps and cautions
 
@@ -57,10 +58,12 @@ Demo accounts (after seeding): `asha.sharma@example.test`, `trainee2..10@example
 - `User.jobRole` references `"JobRole"`; the registered model is `P2JobRole`. Avoid `populate("jobRole")`.
 - No frontend unit/lint/typecheck script exists; verification is the Vite build + Playwright.
 - There is no role-change API; role changes occur only through TTT verification.
+- `User.jobRole` (the **professional** role) is separate from `User.role` (application access) and is set only through `PATCH /api/users/:id/job-role` (admin). Do not conflate them.
+- Reminders are the only scheduled work (`services/reminderService.js`, driven from `server.js`). Tests import `app.js`, so the scheduler never runs under test; use `POST /api/notifications/reminders/run` for a deterministic run.
 - `docs/` mixes a new target/actual set with older verification records — see `docs/README.md` for which is which.
 
 ## Testing boundary
 
 Tests use an isolated in-memory replica set and never touch `MONGO_URI`. Backend suite runs with `--test-concurrency=1`. On a cold machine the first run downloads the MongoDB binary.
 
-Latest executed: **56/56 backend tests pass** (2026-09-25).
+Latest executed: **72/72 backend tests pass** (2026-09-26). Latest `npm run build --prefix client`: clean, 1704 modules.

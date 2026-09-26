@@ -461,6 +461,129 @@ export async function transitionNomination(
   return populatedNomination(P3.P3TTTNomination.findById(nomination._id)).lean();
 }
 
+// Train-the-Trainer learning. The program's courses are the TTT curriculum; a
+// candidate records progress, and teaching practice opens only once every
+// program course is complete. Completion is learning activity, never reviewed
+// expertise.
+async function requiredLearning(nomination) {
+  const program = await P3.P3TTTProgram.findById(nomination.program)
+    .select("courses")
+    .lean();
+  return program?.courses || [];
+}
+
+export async function tttLearningFor(actor, nominationId) {
+  const nomination = await P3.P3TTTNomination.findById(nominationId).lean();
+  if (!nomination) fail(404, "TTT nomination not found");
+  if (id(nomination.candidate) !== id(actor._id) && actor.role !== "admin")
+    fail(403, "You can only read your own Train-the-Trainer learning");
+  const program = await P3.P3TTTProgram.findById(nomination.program)
+    .select("title courses")
+    .lean();
+  const courseIds = program?.courses || [];
+  const courses = courseIds.length
+    ? await P2.P2Course.find({ _id: { $in: courseIds } })
+        .select("title code status")
+        .lean()
+    : [];
+  const rows = await P3.P3TTTLearning.find({ nomination: nomination._id }).lean();
+  const items = courseIds
+    .map((courseId) => {
+      const course = courses.find((row) => id(row._id) === id(courseId));
+      const record = rows.find((row) => id(row.course) === id(courseId));
+      return {
+        course: course
+          ? {
+              _id: course._id,
+              title: course.title,
+              code: course.code,
+              status: course.status,
+            }
+          : { _id: courseId, title: "Course no longer available", code: "" },
+        status: record?.status || "NOT_STARTED",
+        progressPercent: record?.progressPercent || 0,
+        completedAt: record?.completedAt || null,
+      };
+    });
+  return {
+    nomination: nomination._id,
+    program: program
+      ? { _id: program._id, title: program.title }
+      : null,
+    items,
+    completed: items.filter((item) => item.status === "COMPLETED").length,
+    total: items.length,
+    gate: !items.length
+      ? "NO_LEARNING_REQUIRED"
+      : items.every((item) => item.status === "COMPLETED")
+        ? "READY_FOR_TEACHING_PRACTICE"
+        : "TTT_LEARNING_REQUIRED",
+    note: "Train-the-Trainer learning completion is recorded learning activity. It never creates reviewed expertise; only coordinator verification does.",
+  };
+}
+
+export async function recordTttLearning(
+  actor,
+  nominationId,
+  { course, progressPercent },
+) {
+  const nomination = await P3.P3TTTNomination.findById(nominationId);
+  if (!nomination) fail(404, "TTT nomination not found");
+  if (id(nomination.candidate) !== id(actor._id))
+    fail(403, "Only the nominated candidate can record Train-the-Trainer learning");
+  if (![...ACTIVE_STATES, "RETURNED"].includes(nomination.status))
+    fail(
+      409,
+      `Train-the-Trainer learning is not available while the nomination is ${nomination.status}`,
+    );
+  const required = await requiredLearning(nomination);
+  if (!required.some((row) => id(row) === id(course)))
+    fail(400, "This course is not part of the Train-the-Trainer program");
+  const percent = Number(progressPercent);
+  if (!Number.isFinite(percent) || percent < 0 || percent > 100)
+    fail(400, "Progress must be a number between 0 and 100");
+
+  const existing = await P3.P3TTTLearning.findOne({
+    nomination: nomination._id,
+    course,
+  }).lean();
+  const status =
+    percent >= 100 ? "COMPLETED" : percent > 0 ? "IN_PROGRESS" : "NOT_STARTED";
+  const row = await P3.P3TTTLearning.findOneAndUpdate(
+    { nomination: nomination._id, course },
+    {
+      $set: {
+        status,
+        progressPercent: percent,
+        completedAt:
+          status === "COMPLETED" ? existing?.completedAt || now() : null,
+        ...(percent > 0 && !existing?.startedAt && { startedAt: now() }),
+      },
+      $setOnInsert: {
+        nomination: nomination._id,
+        candidate: actor._id,
+        program: nomination.program,
+        course,
+        ...(nomination.isSynthetic && {
+          isSynthetic: true,
+          demoNamespace: nomination.demoNamespace,
+        }),
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  );
+  await recordAudit({
+    actor: actor._id,
+    action: "TTT_LEARNING_RECORDED",
+    entityType: "P3TTTLearning",
+    entityId: row._id,
+    newStatus: status,
+    changes: { nomination: String(nomination._id), course: String(course) },
+    reason: `Train-the-Trainer learning progress recorded at ${percent}%`,
+  });
+  return tttLearningFor(actor, nomination._id);
+}
+
 export async function savePractice(actor, nominationId, body) {
   const nomination = await P3.P3TTTNomination.findById(nominationId);
   if (!nomination) fail(404, "TTT nomination not found");
@@ -471,6 +594,20 @@ export async function savePractice(actor, nominationId, body) {
       409,
       `Teaching practice is not available while the nomination is ${nomination.status}`,
     );
+
+  const required = await requiredLearning(nomination);
+  if (required.length) {
+    const completed = await P3.P3TTTLearning.countDocuments({
+      nomination: nomination._id,
+      course: { $in: required },
+      status: "COMPLETED",
+    });
+    if (completed < required.length)
+      fail(
+        409,
+        `Complete the Train-the-Trainer learning before teaching practice (${completed}/${required.length} courses complete)`,
+      );
+  }
 
   const latest = await P3.P3TTTPractice.findOne({ nomination: nominationId })
     .sort({ version: -1 })

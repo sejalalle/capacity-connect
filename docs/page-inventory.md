@@ -138,14 +138,14 @@ Scope labels follow `AGENTS.md`: **Core**, **Demo integration**, **Later**, **Pr
 
 | Workflow step | Where it is delivered | Status |
 | --- | --- | --- |
-| Role & Competency Requirement | `P2JobRole`/`P2RoleRequirement`; Admin → Role Mapping | Implemented |
-| Profile & Evidence Collection | Profile page; evidence submission | Implemented |
+| Role & Competency Requirement | `P2JobRole`/`P2RoleRequirement`; Admin → Role Mapping. **Admin → Users assigns a user's professional role** (separate from the access role) | Implemented |
+| Profile & Evidence Collection | Profile page; evidence submission. **A coordinator can record previous training and a reviewed baseline level** | Implemented |
 | Competency Analysis | `P2CompetencyRecord`; Competency Passport | Implemented |
 | Skill-Gap Identification | Skill Gaps page; `GET /api/gaps/me` | Implemented |
 | Learning Recommendation | Training Needs, Learning Paths, course recommendation explanations | Implemented |
-| Trainer Matching | `calculateSuitability`; Trainer / Mentorship (trainee), Trainer Discovery (admin) | Implemented (recommendation only; a coordinator assigns) |
+| Trainer Matching | `calculateSuitability`; Trainer / Mentorship (trainee), Trainer Discovery (admin). **The trainee view also lists trainers for the trainee's own competency gap** | Implemented (recommendation only; a coordinator assigns) |
 | Learning & Training | Learning modules, resources, recorded lectures, progress tracking | Implemented |
-| Knowledge Assessment | MCQ question bank, server-scored attempts | Implemented |
+| Knowledge Assessment | MCQ question bank (**with independent review**), server-scored attempts, **trainer assessment authoring and publication** | Implemented |
 | Practical Verification | Practical submissions evaluated against criteria | Implemented |
 | Human-Verified Competency | Competency decisions on reviewed evidence | Implemented |
 | Evidence Portfolio | Evidence records and the passport | Implemented |
@@ -155,9 +155,23 @@ Scope labels follow `AGENTS.md`: **Core**, **Demo integration**, **Later**, **Pr
 | Organizational Skill Gaps | Capability coverage gaps (`NOT_ASSESSED` kept separate) | Implemented |
 | Training Demand | Training Demand page | Implemented |
 | Trainer Capacity Intelligence | Trainer Capacity page | Implemented |
-| Train-the-Trainer | TTT program → practice → evaluation → coordinator verification | Implemented |
+| Train-the-Trainer | TTT program → **programme learning** → practice → evaluation → coordinator verification | Implemented |
 | Expanded Trainer Pool | TTT verification promotes a candidate and adds a verified trainer | Implemented |
 | Continuous Feedback & Improvement | Feedback workflow and theme summarisation | Implemented |
+| Notifications | Per-role notification list; workflow events plus **time-driven reminders** (assessment deadline, training deadline, recommendation) | Implemented (in-app list only) |
+
+### UI additions, 2026-09-26
+
+Controls added to pages that already existed — no new page was introduced:
+
+| Page | Added |
+| --- | --- |
+| Admin → Users (user panel) | Professional role, previous training records, reviewed baseline level |
+| Trainee → Profile & Settings | "Previous Training" reads recorded completions instead of hard-coded rows |
+| Trainee → Trainer / Mentorship | Trainers for the trainee's own competency gap, with reviewed level and availability |
+| Trainee → Train the Trainer | Programme learning plan, progress controls and the teaching-practice lock |
+| Trainer → Question Bank | *Mark reviewed* (the author cannot self-review) |
+| Trainer → Assessments | *Create assessment draft* and *Publish* |
 
 ## Video delivery — how it works, and its boundary
 
