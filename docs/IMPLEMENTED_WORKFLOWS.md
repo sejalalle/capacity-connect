@@ -2,7 +2,7 @@
 
 Snapshot date: **2026-09-26**. This is the **actual**, not the target. Inspect code before relying on any row.
 
-Baseline at snapshot: `npm test --prefix server` → **72 passed / 0 failed**; `npm run build --prefix client` → clean. Per-step status and evidence: `flow-coverage.md`.
+Baseline at snapshot: `npm test --prefix server` → **78 passed / 0 failed**; `npm run build --prefix client` → clean. Per-step status and evidence: `flow-coverage.md`. AI boundary: `ai-position.md`.
 
 ## Architecture section → working behaviour or boundary
 
@@ -19,10 +19,11 @@ Baseline at snapshot: `npm test --prefix server` → **72 passed / 0 failed**; `
 | 9 | Trainer capacity | `POST /api/part3/capacity` interval-based estimate. | Estimate only. |
 | 10 | TTT as solution | Loop closes: verification adds a verified trainer to the pool. | Manual; no automatic nomination. |
 | 11 | Announcements | **New.** `P2Announcement` + publish fan-out; public homepage feed. | Publish does not change workflow state. |
-| 12 | Reports/analytics | Dashboard, capability, demand, audit, feedback, AI activity endpoints. | No dedicated analytics page/charts. |
+| 12 | Reports/analytics | Dashboard, capability, demand, audit, feedback, AI activity and AI settings endpoints. `GET /api/part3/ai/settings` reports the resolved provider profile, model and endpoint (never the secret). | No dedicated analytics page/charts. |
 | 13 | Feedback | Participant-scoped feedback with aggregate views. | — |
 | 14 | Complete story | Demonstrable end to end with the seeded dataset. | Synthetic data only. |
-| 15 | Security/audit | JWT + approval + role/ownership/scope checks; transactions for admission/verification; audit requires `correlationId`; notifications deduplicated by `eventId`. | Malware scanning/TLS/deploy hardening are external. |
+| 15 | Security/audit | JWT + approval + role/ownership/scope checks; transactions for admission/verification; audit requires `correlationId`; notifications deduplicated by `eventId`. Deliberate 5xx errors keep their actionable message so an AI misconfiguration is diagnosable; unexpected 5xx stay masked. | Malware scanning/TLS/deploy hardening are external. |
+| 16 | AI boundary | One switch, `AI_PROVIDER_PROFILE`, moves every AI-assisted task; no automatic fallback; an unknown profile is reported. AI never decides a level, a grade, a verification or an approval. | `docs/ai-position.md` is the map. Selecting a profile is not a data-handling approval. |
 
 ## Code map
 

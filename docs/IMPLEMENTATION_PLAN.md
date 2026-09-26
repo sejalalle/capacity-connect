@@ -2,6 +2,55 @@
 
 Dated, newest-first. `[x]` = has executed automated evidence. `[ ]` = unimplemented or device/live acceptance only. A file or route is not evidence.
 
+## **Trainee Train-the-Trainer portal, 2026-09-26**
+
+Built the nominated candidate's own TTT workspace to the agreed eight-step reference flow, and made the `TRAIN-THE-TRAINER` navigation group conditional on an admin-created nomination. The backend connections the design still needs are recorded in `page-inventory.md`. Evidence: `npm run build --prefix client` → clean, 1708 modules; `npm run test:e2e` → `flow.spec.js` 5/5, `ui-recovery.spec.js` 2/2 (the route-inventory spec parses `navigation.js`, so all six new candidate pages are walked at four widths and checked for overflow) and the new `tests/ttt-trainee-portal.spec.js` 2/2.
+
+**Unrelated E2E failures present in the working tree at this time:** seven specs fail against the *concurrent*, uncommitted trainee-page rewrite (`TraineeExperiencePage.jsx` and siblings), which replaces API-backed trainee surfaces with static mockups and renames/removes navigation entries. `lifecycle.spec.js:11` (no "TWO LEVEL GAP" on the mocked Skill Gaps page), `lifecycle.spec.js:116` ("Competency Passport" renamed to "Role & Requirements"), `part3.spec.js:50` and `part3b.spec.js:17` (cascades: the admission never runs, so the trainee has no enrollment), `part3b.spec.js:175` (mocked competency history), `part3b.spec.js:194` (`skill-suggestions` no longer has a route), `selected-workflow.spec.js:9` (mockup heading is "Feedback & notifications", not "Training Feedback"). None of these are reachable from this change and none touch the Train-the-Trainer surfaces.
+
+### Candidate workspace (Trainee, Core)
+
+- [x] `TttTraineePage.jsx` with six sections: TTT Dashboard, Program, Learning Modules, Teaching Practice, Submissions, Progress & Evaluation. Nav group + routes are generated from `client/src/utils/navigation.js`, so the six entries create their own routes.
+- [x] The Step 1 callout appears on the trainee dashboard, and the group only exists when a nomination is present.
+- [x] Real data throughout: nomination detail and history, `learning` progress with the teaching-practice gate, practice sessions, rubric evaluation (per-criterion marks, overall score, evaluator, comments) and the completion checklist.
+- [x] Accept / Start / Decline use the existing `transitions` endpoint with the revision; submission uses the existing `teaching-practice` endpoint; module progress uses the existing `learning` endpoint.
+
+### Conditional visibility
+
+- [x] `useTttNomination` reads `GET /api/part3/ttt/candidates` (own nominations for a trainee) and exposes `hasAccess`, which is false for `WITHDRAWN`/`REJECTED` nominations and while loading.
+- [x] `navigation.js` marks the group `requiresTttNomination: true`; `Sidebar.jsx` filters it out for trainees without access. Trainer and admin navigation is untouched.
+- [x] Direct navigation without a nomination renders a "no nomination" state rather than the workspace.
+
+### Boundaries stated in the UI
+
+- [x] Programme duration/mode/start/end, the programme's written practice requirements, session links and recordings, practice file uploads and additional resources have no backing fields. Each renders an inline pending notice rather than placeholder content. Upload controls are present but disabled with the reason given.
+- [x] Completing the programme never claims verified expertise: the completion banner and checklist both defer to the coordinator's verification decision.
+
+---
+
+## **AI provider switch and AI position record, 2026-09-26**
+
+Added `AI_PROVIDER_PROFILE` as the single switch that moves every AI-assisted task between providers, recorded the AI boundary in `docs/ai-position.md`, and fixed the masked-5xx defect that made an AI misconfiguration undiagnosable. Evidence: `npm test --prefix server` → **78 passed / 0 failed** (was 72: +6 in `server/test/ai-profile.test.js`).
+
+### Provider switch
+
+- [x] `AI_PROVIDER_PROFILE` (`disabled` | `gemini` | `openai` | `mock`) in `services/aiService.js`. A profile carries the transport, base URL, default model and which secret is read, so one env change moves MCQ drafting, skill-gap explanation, course-recommendation explanation, trainer-match explanation, evidence summarization, feedback summarization and TTT candidate summarization together.
+- [x] `gemini` uses Gemini's OpenAI-compatible endpoint with `GEMINI_MODEL` (default `gemini-3.8-flash`); `openai` uses `api.openai.com/v1` with `OPENAI_MODEL`. `AI_MODEL`, `AI_API_KEY` and `AI_BASE_URL` remain manual overrides.
+- [x] No automatic fallback between providers: a profile either works or the call fails closed to the manual workflow. An unrecognised profile name is reported in `GET /api/part3/ai/settings` and in the 503 message rather than silently falling back.
+- [x] Selecting a profile switches AI on; `AI_ENABLED=false` stays available as a hard override that wins. `AI_EXTERNAL_DATA_APPROVED` is still required for external calls — a profile selection is not a data-handling approval.
+- [x] `aiSettings()` now also reports the resolved profile and endpoint (never the secret), and the unresolved-profile error is surfaced.
+
+### Masked 5xx fixed
+
+- [x] `middleware/errorHandler.js` masked **every** 5xx message, so "AI assistance is disabled", "provider configuration unavailable for profile X", "data handling not approved", "timed out" and "request limit reached" all arrived as `Something went wrong. Please try again.` — leaving no way to tell why an AI call failed. Deliberate `HttpError`s now keep their already-worded message; unexpected errors (including every non-`HttpError` 5xx and the StrictMode crash class) stay masked. Every deliberate 5xx in the repository is in `aiService.js`, so the exposure is bounded.
+
+### Documentation
+
+- [x] `docs/ai-position.md` — the 🟢 assistant tasks and the 🔴 prohibited decisions, each 🔴 row naming the code that enforces it, plus the provider switch table.
+- [x] Corrected the endpoint named in the earlier AI entry: MCQ drafting is `POST /api/part3/ai/mcq-drafts` (`ai-question-drafts` is the client route segment, not the API path).
+
+---
+
 ## **Expected-flow coverage pass, 2026-09-26**
 
 Stored the product owner's stated flow as `docs/expected-flow.md` (test basis), audited all 30 steps against code, and recorded per-step status in the new `docs/flow-coverage.md`. Closed every item in that queue. Evidence: `npm test --prefix server` → **72 passed / 0 failed** (was 66: +1 job-role, +1 baseline/previous-training, +1 trainer-match, +1 review chain, +2 reminders); `npm run build --prefix client` → clean, 1704 modules.
@@ -107,7 +156,7 @@ Boundary: video is direct upload with no transcoding or HLS packaging; playback 
 Implemented the seven sanctioned AI use cases and the human-review gate for skill-tag extraction. All six new explanation use cases are explanation-only from day one (read-only structured outputs, disclaimers, no automated record creation or competency changes). All calls logged to `P3AIRequestMetadata` for auditability. Evidence: `npm test --prefix server` → **57 passed / 0 failed**; `npm run build --prefix client` → clean.
 
 ### Sanctioned AI Slots Implemented
-- [x] **MCQ Drafting** (Core/Demo integration) — `POST /api/part3/ai-question-drafts` creates unpublished drafts for human review.
+- [x] **MCQ Drafting** (Core/Demo integration) — `POST /api/part3/ai/mcq-drafts` creates unpublished drafts for human review.
 - [x] **Skill-gap explanation** (Core/Demo integration) — `POST /api/part3/ai/explain-gap` produces 2-3 sentence explanation + next steps without updating competency records.
 - [x] **Course recommendation explanation** (Core/Demo integration) — `POST /api/part3/ai/explain-course` explains course mapping rationale for competency development.
 - [x] **Trainer-match explanation** (Core/Demo integration) — `POST /api/part3/ai/explain-trainer-match` returns 1-liner justification from suitability factor points. Wired into `TrainerMatchPage.jsx`.

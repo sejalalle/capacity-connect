@@ -66,4 +66,4 @@ Demo accounts (after seeding): `asha.sharma@example.test`, `trainee2..10@example
 
 Tests use an isolated in-memory replica set and never touch `MONGO_URI`. Backend suite runs with `--test-concurrency=1`. On a cold machine the first run downloads the MongoDB binary.
 
-Latest executed: **72/72 backend tests pass** (2026-09-26). Latest `npm run build --prefix client`: clean, 1704 modules.
+Latest executed: **78/78 backend tests pass** (2026-09-26). Latest `npm run build --prefix client`: clean, 1704 modules.

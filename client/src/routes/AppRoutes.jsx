@@ -6,8 +6,10 @@ import FeedbackPage from "../pages/feedback/FeedbackPage";
 import AnnouncementsPage from "../pages/announcements/AnnouncementsPage";
 import AchievementsPage from "../pages/achievements/AchievementsPage";
 import TrainerMatchPage from "../pages/trainer/TrainerMatchPage";
+import TraineeSupportPage from "../pages/trainee/TraineeSupportPage";
 import TrainingDemandPage from "../pages/demand/TrainingDemandPage";
 import TttPage from "../pages/ttt/TttPage";
+import TttTraineePage from "../pages/ttt/TttTraineePage";
 import PublicLayout from "../layouts/PublicLayout";
 import TraineeLayout from "../layouts/TraineeLayout";
 import TrainerLayout from "../layouts/TrainerLayout";
@@ -15,8 +17,11 @@ import AdminLayout from "../layouts/AdminLayout";
 import LandingPage from "../pages/landing/LandingPage";
 import AuthPage from "../pages/auth/AuthPage";
 import TraineeDashboard from "../pages/trainee/TraineeDashboard";
+import TraineeExperiencePage from "../pages/trainee/TraineeExperiencePage";
 import TrainerDashboard from "../pages/trainer/TrainerDashboard";
+import TrainerExperiencePage from "../pages/trainer/TrainerExperiencePage";
 import AdminDashboard from "../pages/admin/AdminDashboard";
+import AdminExperiencePage from "../pages/admin/AdminExperiencePage";
 import UsersPage from "../pages/admin/UsersPage";
 import ProfilePage from "../pages/profile/ProfilePage";
 import ModulePage from "../pages/trainee/ModulePage";
@@ -62,6 +67,16 @@ const part3bPaths = new Set([
   "follow-up-oversight",
   "ai-activity",
 ]);
+// The candidate's Train-the-Trainer workspace. The Sidebar reveals the group
+// only after an admin-created nomination; the page refuses to render without one.
+const tttTraineePaths = new Set([
+  "ttt-dashboard",
+  "ttt-program",
+  "ttt-modules",
+  "ttt-practice",
+  "ttt-submissions",
+  "ttt-progress",
+]);
 export default function AppRoutes() {
   return (
     <Routes>
@@ -78,19 +93,28 @@ export default function AppRoutes() {
             <Route key={role} element={<RoleRoute roles={[role]} />}>
               <Route path={role} element={<Layout />}>
                 <Route index element={<Dashboard />} />
+                {role === "trainee" && <Route path="support" element={<TraineeSupportPage />} />}
                 <Route path="profile" element={<ProfilePage />} />
                 <Route path="training-needs/:id" element={<ModulePage />} />
                 <Route path="courses/:id" element={<ModulePage />} />
                 <Route path="nominations/:id" element={<ModulePage />} />
                 <Route path="batches/:id" element={<ModulePage />} />
                 {navigation[role]
-                  .filter(([, path]) => path && path !== "profile")
+                  .filter(([, path]) => path && path !== "profile" && path !== "support")
                   .map(([, path]) => (
                     <Route
                       key={path}
                       path={path}
                       element={
-                        path === "trainer-capacity" ? (
+                        role === "admin" && ["users", "competencies", "job-role-requirements", "organizational-capability", "training-demand", "courses", "assessments", "certificates", "batches", "calendar", "results", "feedback", "audit-logs"].includes(path) ? (
+                          <AdminExperiencePage view={path} />
+                        ) : role === "trainer" && ["courses", "assigned-batches", "learning", "assessments", "question-bank", "training-sessions", "availability", "calendar", "results", "feedback", "train-the-trainer", "ttt-candidates"].includes(path) ? (
+                          <TrainerExperiencePage view={path} />
+                        ) : tttTraineePaths.has(path) ? (
+                          <TttTraineePage />
+                        ) : role === "trainee" && ["competency-passport", "competency-history", "skill-gaps", "learning-paths", "courses", "learning", "assessments", "evidence", "follow-ups", "certificates", "feedback", "notifications"].includes(path) ? (
+                          <TraineeExperiencePage view={path} />
+                        ) : path === "trainer-capacity" ? (
                           <CapacityPage />
                         ) : path === "certificates" ? (
                           <CertificatesPage />

@@ -1,4 +1,4 @@
-import Part2Page from "../part2/Part2Page";
+import TrainerExperiencePage from "./TrainerExperiencePage";
 export default function TrainerDashboard() {
-  return <Part2Page view="dashboard" />;
+  return <TrainerExperiencePage view="dashboard" />;
 }

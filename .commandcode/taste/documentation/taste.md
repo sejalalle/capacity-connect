@@ -15,3 +15,4 @@
 - Implementation checklists should mark items that have automated evidence distinctly from those that are only device/live-acceptance or unimplemented; a file or route existing is not evidence. Confidence: 0.8
 - Wants the stated/expected product flow (the product owner's step-by-step requirement narrative) stored verbatim as its own markdown doc in `docs/` and treated as the acceptance/test basis. Confidence: 0.75
 - Wants a companion coverage ledger to that expected-flow doc: one row per expected step with a status of Implemented / Partial / Missing, the concrete code evidence (file/route/page), the executed-test evidence, and what is specifically absent. Confidence: 0.75
+- When a UI is built ahead of its backend, wants the exact missing backend connection (the field or endpoint each designed element needs) written down per element in the docs, and unavailable controls shown disabled with the reason rather than faked with placeholder content. Confidence: 0.7

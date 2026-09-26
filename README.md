@@ -238,15 +238,25 @@ Important settings include:
 | `ADMIN_SEED_EMAIL`    | Email for the seeded administrator              |
 | `ADMIN_SEED_PASSWORD` | Password for the seeded administrator           |
 | `DEMO_REFERENCE_DATE` | Reference date for synthetic training schedules |
-| `AI_ENABLED`          | Enables or disables optional AI assistance      |
+| `AI_PROVIDER_PROFILE` | Which AI provider every AI-assisted task uses   |
 
 Also configure the authentication, server and frontend connection settings required by the example files.
 
-For local testing without an AI provider:
+AI assistance is **off** unless a provider profile is selected, so local testing needs no AI configuration:
 
 ```env
-AI_ENABLED=false
+AI_PROVIDER_PROFILE=disabled
 ```
+
+To use a provider, change that one line and restart the backend:
+
+```env
+AI_PROVIDER_PROFILE=gemini   # or: openai
+GEMINI_API_KEY=...           # GEMINI_MODEL=gemini-3.8-flash
+AI_EXTERNAL_DATA_APPROVED=true
+```
+
+`disabled`, `gemini`, `openai` and `mock` are the supported profiles. Selecting a profile is not by itself a data-handling approval, and there is no automatic fallback between providers. See `docs/ai-position.md` for what AI may and may not do.
 
 Never commit real `.env` files, passwords, database credentials or API keys.
 
@@ -507,26 +517,29 @@ AI cannot independently:
 Optional server settings include:
 
 ```env
-AI_ENABLED=false
-AI_PROVIDER=
-AI_MODEL=
-AI_API_KEY=
-AI_BASE_URL=
+AI_PROVIDER_PROFILE=disabled   # disabled | gemini | openai | mock
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.8-flash
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o-mini
 AI_TIMEOUT_MS=
 AI_RETRY_LIMIT=
 AI_REQUEST_LIMIT=
 AI_EXTERNAL_DATA_APPROVED=false
 ```
 
-Use `server/.env.example` for supported values and defaults. Leave optional numeric settings at their documented defaults rather than copying empty values into an enabled configuration.
+Use `server/.env.example` for supported values and defaults. Leave optional numeric settings at their documented defaults rather than copying empty values into an enabled configuration. `AI_MODEL`, `AI_API_KEY` and `AI_BASE_URL` are manual overrides on top of the selected profile; leave them blank to use the profile's defaults.
 
-External processing requires the explicit data-handling gate.
+External processing requires the explicit data-handling gate (`AI_EXTERNAL_DATA_APPROVED`). `AI_ENABLED=false` remains available as a hard override that beats any profile.
+
+The resolved profile, provider, model and endpoint are visible to any signed-in user at `GET /api/part3/ai/settings`; the secret is never returned.
 
 When AI is disabled or unavailable:
 
 - Core workflows remain usable.
 - Deterministic catalogue matching remains available.
 - Manual profile and question editing remain available.
+- The API returns the specific reason (disabled, not configured, data handling not approved, rate limited, timed out) so a person can fall back to the manual workflow.
 - The application must not present fabricated provider output.
 
 Provider responses are schema-validated. Audit records exclude API keys and full source documents.

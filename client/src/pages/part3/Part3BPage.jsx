@@ -728,9 +728,13 @@ function AIWorkspace({ segment, settings, form, setForm, busy, act }) {
       >
         <p>
           {settings.enabled
-            ? `${settings.provider} / ${settings.model}`
-            : "AI assistance is disabled. Manual workflows and deterministic catalogue search remain available."}
+            ? `Profile ${settings.profile || settings.provider} · ${settings.model}`
+            : settings.profileError ||
+              "AI assistance is disabled. Manual workflows and deterministic catalogue search remain available."}
         </p>
+        {settings.enabled && (
+          <p className="context-note">Endpoint: {settings.baseUrl}</p>
+        )}
         <p className="context-note">
           Suggestions never verify expertise, appoint trainers, publish results,
           or update competency.

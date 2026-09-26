@@ -10,11 +10,12 @@
 4. `IMPLEMENTED_WORKFLOWS.md` — what works now, mapped to architecture sections.
 5. `expected-flow.md` — the product owner's expected flow, step by step. The **test basis**.
 6. `flow-coverage.md` — expected vs actual, one row per expected step, with code and test evidence.
-7. `PROJECT_CONTEXT.md` — repo facts, commands, known gaps.
-8. `page-inventory.md` — the agreed per-role page inventory and where each item actually lives.
-9. `sources/README.md` — provenance of source material and conflict resolution.
+7. `ai-position.md` — what AI may assist with, what it must never decide, and what enforces that.
+8. `PROJECT_CONTEXT.md` — repo facts, commands, known gaps.
+9. `page-inventory.md` — the agreed per-role page inventory and where each item actually lives.
+10. `sources/README.md` — provenance of source material and conflict resolution.
 
-## Seven kinds of truth, never mixed
+## Eight kinds of truth, never mixed
 
 | Document | Answers | Trust it for |
 | --- | --- | --- |
@@ -23,6 +24,7 @@
 | `IMPLEMENTED_WORKFLOWS.md` | What actually runs | Current behaviour and boundaries |
 | `expected-flow.md` | What the product owner expects, step by step | The acceptance basis |
 | `flow-coverage.md` | Which expected steps are Implemented / Partial / Missing, and the evidence | Per-step status and the open queue |
+| `ai-position.md` | Which tasks AI may assist with, and which decisions it must never make | The AI boundary and the code that enforces it |
 | `PROJECT_CONTEXT.md` | How the repo is arranged | Facts, commands, constraints |
 | `page-inventory.md` | Which pages are agreed and where each one lives | Page-level scope and coverage status |
 

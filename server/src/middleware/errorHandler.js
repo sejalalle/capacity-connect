@@ -8,8 +8,13 @@ export class HttpError extends Error {
 export default function errorHandler(err, req, res, next) {
   if (res.headersSent) return next(err);
   let status = err.status || 500;
+  // A deliberate HttpError carries a safe, already-worded explanation a person
+  // can act on (for example the AI fallback guidance). Anything unexpected —
+  // including every non-HttpError 5xx — stays masked.
   let message =
-    status >= 500 ? "Something went wrong. Please try again." : err.message;
+    err instanceof HttpError || status < 500
+      ? err.message || "Something went wrong. Please try again."
+      : "Something went wrong. Please try again.";
   if (err.code === 11000) {
     status = 409;
     message = err.keyPattern?.email

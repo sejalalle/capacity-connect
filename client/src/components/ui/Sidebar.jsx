@@ -1,15 +1,27 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { X, LogOut, ChevronDown, ChevronRight } from "lucide-react";
 import Brand from "./Brand";
 import useAuth from "../../hooks/useAuth";
+import useTttNomination from "../../hooks/useTttNomination";
 import { navigationGroups } from "../../utils/navigation";
 
 export default function Sidebar({ role, open, onClose }) {
   const ref = useRef(null);
   const { logout } = useAuth();
   const location = useLocation();
-  const groups = navigationGroups[role] || [];
+  // Train-the-Trainer is admin-created: a trainee only sees the group once a
+  // nomination exists. Other roles are unaffected.
+  const { hasAccess: hasTttNomination } = useTttNomination();
+  const groups = useMemo(
+    () =>
+      (navigationGroups[role] || []).filter(
+        (group) =>
+          !group.requiresTttNomination ||
+          (role === "trainee" && hasTttNomination),
+      ),
+    [role, hasTttNomination],
+  );
 
   // Determine active group from pathname
   const currentPath = location.pathname

@@ -1,17 +1,76 @@
 import crypto from "node:crypto";
 import { HttpError } from "../middleware/errorHandler.js";
 
-const config = () => ({
-  enabled: process.env.AI_ENABLED === "true",
-  provider: process.env.AI_PROVIDER || "disabled",
-  model: process.env.AI_MODEL || "",
-  apiKey: process.env.AI_API_KEY || "",
-  baseUrl: process.env.AI_BASE_URL || "https://api.openai.com/v1",
-  timeout: Math.min(Number(process.env.AI_TIMEOUT_MS || 10000), 30000),
-  retries: Math.min(Number(process.env.AI_RETRY_LIMIT || 1), 2),
-  maxRequests: Math.min(Number(process.env.AI_REQUEST_LIMIT || 20), 100),
-  externalDataApproved: process.env.AI_EXTERNAL_DATA_APPROVED === "true",
+// Provider profiles. Selecting a profile is the single switch that moves every
+// AI-assisted task between providers: it sets the transport, the base URL, the
+// default model and which secret is read.
+//
+// Gemini exposes an OpenAI-compatible chat-completions endpoint, so it uses the
+// same transport as OpenAI with a different base URL, key and model. There is no
+// automatic fallback between profiles: a profile either works or the call fails
+// closed to the manual workflow.
+const PROFILES = Object.freeze({
+  disabled: { provider: "disabled" },
+  mock: { provider: "mock" },
+  openai: {
+    provider: "openai-compatible",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o-mini",
+    modelEnv: "OPENAI_MODEL",
+    keyEnv: "OPENAI_API_KEY",
+  },
+  gemini: {
+    provider: "openai-compatible",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    model: "gemini-3.8-flash",
+    modelEnv: "GEMINI_MODEL",
+    keyEnv: "GEMINI_API_KEY",
+  },
 });
+export const AI_PROFILE_NAMES = Object.freeze(Object.keys(PROFILES));
+
+const config = () => {
+  const requestedProfile = (process.env.AI_PROVIDER_PROFILE || "")
+    .trim()
+    .toLowerCase();
+  const profile = PROFILES[requestedProfile] || null;
+  const profileError =
+    requestedProfile && !profile
+      ? `Unknown AI_PROVIDER_PROFILE "${requestedProfile}". Use one of: ${AI_PROFILE_NAMES.join(", ")}.`
+      : "";
+  // A real profile is the enable signal; AI_ENABLED=false stays available as a
+  // hard override that wins over any profile.
+  const profileSelectsAProvider = Boolean(
+    profile && profile.provider !== "disabled",
+  );
+  const provider = profile?.provider || process.env.AI_PROVIDER || "disabled";
+  return {
+    profile: requestedProfile || null,
+    profileError,
+    enabled:
+      process.env.AI_ENABLED === "false"
+        ? false
+        : process.env.AI_ENABLED === "true" || profileSelectsAProvider,
+    provider,
+    model:
+      process.env.AI_MODEL ||
+      (profile?.modelEnv && process.env[profile.modelEnv]) ||
+      profile?.model ||
+      "",
+    apiKey:
+      (profile?.keyEnv && process.env[profile.keyEnv]) ||
+      process.env.AI_API_KEY ||
+      "",
+    baseUrl:
+      process.env.AI_BASE_URL ||
+      profile?.baseUrl ||
+      "https://api.openai.com/v1",
+    timeout: Math.min(Number(process.env.AI_TIMEOUT_MS || 10000), 30000),
+    retries: Math.min(Number(process.env.AI_RETRY_LIMIT || 1), 2),
+    maxRequests: Math.min(Number(process.env.AI_REQUEST_LIMIT || 20), 100),
+    externalDataApproved: process.env.AI_EXTERNAL_DATA_APPROVED === "true",
+  };
+};
 
 const schemas = {
   SKILL_EXTRACTION(value) {
@@ -233,8 +292,11 @@ export function aiSettings() {
   const value = config();
   return {
     enabled: value.enabled,
+    profile: value.profile,
+    ...(value.profileError && { profileError: value.profileError }),
     provider: value.provider,
     model: value.model,
+    baseUrl: value.baseUrl,
     timeout: value.timeout,
     retries: value.retries,
     maxRequests: value.maxRequests,
@@ -247,7 +309,8 @@ export async function requestStructuredAI(feature, input) {
   if (!settings.enabled)
     throw new HttpError(
       503,
-      "AI assistance is disabled. Manual workflows remain available.",
+      settings.profileError ||
+        "AI assistance is disabled. Manual workflows remain available.",
     );
   if (settings.provider === "mock") {
     if (process.env.NODE_ENV !== "test")
@@ -279,7 +342,8 @@ export async function requestStructuredAI(feature, input) {
   )
     throw new HttpError(
       503,
-      "AI provider configuration is unavailable. Use the manual workflow.",
+      settings.profileError ||
+        `AI provider configuration is unavailable${settings.profile ? ` for profile "${settings.profile}"` : ""}. Use the manual workflow.`,
     );
   if (!settings.externalDataApproved)
     throw new HttpError(

@@ -25,6 +25,7 @@ Scope labels follow `AGENTS.md`: **Core**, **Demo integration**, **Later**, **Pr
 - **My Assessments** — Shows upcoming, completed, and assessment results.
 - **My Certificates** — Stores completed course certificates and credentials.
 - **Evidence Portfolio** — Displays evidence supporting competency status.
+- **Train-the-Trainer Portal** — The nominated candidate's own TTT workspace: programme, learning modules, teaching practice, submissions and evaluation progress. **Hidden until a coordinator nominates the trainee.** *(Core)*
 - **Notifications** — Provides reminders, announcements, deadlines, and recommendations.
 - **Profile & Settings** — Manages personal information and account preferences.
 
@@ -84,6 +85,7 @@ Scope labels follow `AGENTS.md`: **Core**, **Demo integration**, **Later**, **Pr
 | My Assessments | My Assessments → `/trainee/assessments` | Implemented |
 | My Certificates | My Certificates → `/trainee/certificates` | Implemented |
 | Evidence Portfolio | Evidence Portfolio → `/trainee/evidence` | Implemented |
+| Train-the-Trainer Portal | `TRAIN-THE-TRAINER` group → `/trainee/ttt-dashboard`, `/trainee/ttt-program`, `/trainee/ttt-modules`, `/trainee/ttt-practice`, `/trainee/ttt-submissions`, `/trainee/ttt-progress` | Implemented (six sections; the group is revealed only when a nomination exists. Parts of the design still need backend fields — see below) |
 | Notifications | Notifications → `/trainee/notifications` | Implemented |
 | Profile & Settings | Profile & Settings → `/trainee/profile` | Implemented |
 
@@ -172,6 +174,40 @@ Controls added to pages that already existed — no new page was introduced:
 | Trainee → Train the Trainer | Programme learning plan, progress controls and the teaching-practice lock |
 | Trainer → Question Bank | *Mark reviewed* (the author cannot self-review) |
 | Trainer → Assessments | *Create assessment draft* and *Publish* |
+
+## Trainee Train-the-Trainer portal
+
+**Core.** The nominated candidate's own view of the programme, built to the agreed eight-step reference flow. It is a separate surface from the coordinator/trainer `TttPage`; both read the same records, so nothing a candidate sees can disagree with what a coordinator sees.
+
+### Visibility rule
+
+The `TRAIN-THE-TRAINER` navigation group is present only when the trainee has a nomination that is not `WITHDRAWN` or `REJECTED`. `useTttNomination` reads `GET /api/part3/ttt/candidates`, which for a trainee returns their own nominations, so the unlock is driven entirely by the **admin-created nomination**. Direct navigation to a `/trainee/ttt-*` URL without a nomination renders an explicit "no nomination" state rather than the workspace.
+
+### Sections → reference steps
+
+| Section | Path | Reference steps | Backed by |
+| --- | --- | --- | --- |
+| TTT Dashboard | `/trainee/ttt-dashboard` | 1 (entry), 8 (completion summary) | Nomination + learning + practices |
+| Program | `/trainee/ttt-program` | 2 (nomination), 3 (overview) | Nomination detail; accept/decline via `transitions` |
+| Learning Modules | `/trainee/ttt-modules` | 4 | `GET/POST /ttt/nominations/:id/learning` |
+| Teaching Practice | `/trainee/ttt-practice` | 5 | `GET /ttt/nominations/:id/practices` |
+| Submissions | `/trainee/ttt-submissions` | 6 | `POST /ttt/nominations/:id/teaching-practice` |
+| Progress & Evaluation | `/trainee/ttt-progress` | 7 (evaluation), 8 (completion) | Practice evaluation + nomination history |
+
+The Step 1 callout also appears on the trainee dashboard. Every design element in the reference that has no backing field renders an honest pending notice instead of placeholder content.
+
+### Backend connections still needed
+
+These are the designed elements that cannot be filled from the current API. Each is marked in the UI with an inline notice.
+
+| Designed element | What is missing |
+| --- | --- |
+| Programme duration, delivery mode, start and end dates | `P3TTTProgram` has no `duration`, `deliveryMode`, `startDate` or `endDate`. Add them, and expose them on the candidate's nomination payload. |
+| Programme's written teaching-practice requirements | `P3TTTProgram.teachingPracticeRequirements` exists but `populatedNomination` projects only `title competency targetLevel status`, so a candidate cannot read it. Widen the projection or add a candidate-facing programme endpoint. |
+| Session join link and recording playback | `P3TTTPractice` has no session link, and there is no recording field. Add both (or reference a `P3MediaAsset`) and expose them to the candidate. |
+| Session plan and recording upload | `savePractice` accepts `privateResources`, but there is no private-file upload endpoint scoped to a TTT practice. Add one (owner + candidate scoped, same GridFS pattern as evidence files) and enable the upload fields. |
+| Additional resources (handbook, sample plan, videos) | No resource field on the programme. Add `P3TTTProgram.resources[]` (title, type, link or private resource id). |
+| Completion "forwarded for empanelment" wording | Verification status is real (`nomination.status === VERIFIED`); the empanelment/notice step has no separate record. |
 
 ## Video delivery — how it works, and its boundary
 
