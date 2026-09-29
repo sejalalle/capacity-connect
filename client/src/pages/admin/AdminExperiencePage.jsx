@@ -1775,7 +1775,163 @@ function CertificationsPage(){
   </Shell>;
 }
 function KnowledgeBasePage(){return<Shell eyebrow="KNOWLEDGE CONTINUITY" title="Knowledge Base" desc="Manage organizational knowledge assets, succession planning and capability risk assessment."><KpiRow items={[[FileText,"124","Knowledge Articles","","#3b82f6"],[UserCheck,"18","Subject Matter Experts","","#10b981"],[AlertTriangle,"6","At Risk Roles","","#ef4444"],[Target,"82%","Knowledge Coverage","","#8b5cf6"]]}/><div className="admin-panel"><DataTable columns={["Topic","Category","Expert Owner","Last Reviewed","Risk Level"]} rows={[["Advanced Radar Analysis Techniques","Core Meteorological","Dr. R. Krishnamurthy","Aug 2026","Low"],["NWP Model Configuration","Technical","Prof. S. Mehta","Jul 2026","High"],["Satellite Data Processing","Technical","Mr. A. Bose","Jun 2026","At Risk"]]} onView={()=>{}} viewLabel="View"/></div></Shell>;}
-function UserApprovalsPage(){const[tab,setTab]=useState("pending");const[reviewing,setReviewing]=useState(null);const APPROVAL_ROWS=[["Amit Sharma","amit.sharma@imd.gov.in","Trainer","Forecasting Division","20 Aug 2026","Pending"],["Neha Verma","neha.verma@imd.gov.in","Trainer","Regional Centre Mumbai","19 Aug 2026","Pending"],["Rohit Kumar","rohit.kumar@imd.gov.in","Trainee","Climate Research","19 Aug 2026","Pending"],["Kavya Nair","kavya.nair@imd.gov.in","Trainer","Observatory","18 Aug 2026","Pending"],["Suresh Patel","suresh.p@imd.gov.in","Trainee","Administration","17 Aug 2026","Pending"],["Priya Singh","priya.s@imd.gov.in","Trainer","R&D Division","16 Aug 2026","Pending"],["Arjun Das","arjun.d@imd.gov.in","Trainee","Forecasting Division","15 Aug 2026","Pending"]];const APPROVED_ROWS=[["Asha Sharma","asha.sharma@imd.gov.in","Trainee","Forecasting Division","10 Aug 2026","Approved"],["Vikram Nair","vikram.n@imd.gov.in","Trainer","Regional Centre Delhi","08 Aug 2026","Approved"]];const REJECTED_ROWS=[["Ankit Joshi","ankit.j@imd.gov.in","Trainer","Observatories","05 Aug 2026","Rejected"]];const rows=tab==="pending"?APPROVAL_ROWS:tab==="approved"?APPROVED_ROWS:REJECTED_ROWS;return<Shell eyebrow="PEOPLE MANAGEMENT" title="User Approvals" desc="Review new user registration requests, verify details, and assign platform roles." badge="7 Pending"><KpiRow items={[[AlertTriangle,"7","Pending Approvals","","#f59e0b"],[CheckCircle2,"128","Approved Users","","#10b981"],[XCircle,"12","Rejected Requests","","#ef4444"],[Activity,"96%","Profile Completion","","#3b82f6"]]}/><div className="admin-panel"><Tabs tabs={[{id:"pending",label:"Pending Requests",count:7},{id:"approved",label:"Approved",count:128},{id:"rejected",label:"Rejected",count:12}]} active={tab} onChange={setTab}/><SearchFilter placeholder="Search by name, email or department..." extraFilters={[{label:"All Roles",options:["Trainee","Trainer","Admin"]},{label:"All Departments",options:["Forecasting Division","R&D","Regional Centres","Observatories"]}]}/><DataTable columns={["Name","Email","Requested Role","Department","Request Date","Status"]} rows={rows} onView={(i)=>setReviewing(i)} viewLabel="Review"/></div></Shell>;}
+function UserApprovalsPage() {
+  const [tab, setTab] = useState("pending");
+  const [query, setQuery] = useState("");
+  const [reviewing, setReviewing] = useState(null);
+  const { toast } = useToast();
+
+  // Fetch users for current tab (filtered by accountStatus)
+  const { data, loading, error, reload } = useApi(
+    () => userService.list({ status: tab, limit: 100 }),
+    [tab]
+  );
+
+  // Fetch global counts (no filter) so KPI tiles always show totals
+  const { data: allData, reload: reloadAll } = useApi(() => userService.list({ limit: 1 }), []);
+
+  // Helper: sum counts from aggregate array by accountStatus value
+  const countByStatus = (counts, st) =>
+    (counts || [])
+      .filter((c) => c._id?.status === st)
+      .reduce((s, c) => s + c.count, 0);
+
+  const counts = allData?.counts || [];
+  const pendingCount = countByStatus(counts, "pending");
+  const approvedCount = countByStatus(counts, "approved");
+  const rejectedCount = countByStatus(counts, "rejected");
+
+  // Map user objects to DataTable row arrays
+  const fmt = (d) =>
+    d
+      ? new Date(d).toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
+      : "—";
+  const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "—");
+
+  const users = data?.users || [];
+  const filteredUsers = query
+    ? users.filter(
+        (u) =>
+          u.name?.toLowerCase().includes(query.toLowerCase()) ||
+          u.email?.toLowerCase().includes(query.toLowerCase()) ||
+          u.department?.toLowerCase().includes(query.toLowerCase())
+      )
+    : users;
+
+  const rows = filteredUsers.map((u) => [
+    u.name || "—",
+    u.email || "—",
+    cap(u.role),
+    u.department || "—",
+    fmt(u.createdAt),
+    cap(u.accountStatus),
+  ]);
+
+  return (
+    <Shell
+      eyebrow="PEOPLE MANAGEMENT"
+      title="User Approvals"
+      desc="Review new user registration requests, verify details, and assign platform roles."
+      badge={`${pendingCount} Pending`}
+    >
+      <KpiRow
+        items={[
+          [AlertTriangle, String(pendingCount), "Pending Approvals", "", "#f59e0b"],
+          [CheckCircle2, String(approvedCount), "Approved Users", "", "#10b981"],
+          [XCircle, String(rejectedCount), "Rejected Requests", "", "#ef4444"],
+          [Users, String((allData?.pagination?.total) ?? "—"), "Total Users", "", "#3b82f6"],
+        ]}
+      />
+      <div className="admin-panel">
+        <Tabs
+          tabs={[
+            { id: "pending", label: "Pending Requests", count: pendingCount },
+            { id: "approved", label: "Approved", count: approvedCount },
+            { id: "rejected", label: "Rejected", count: rejectedCount },
+          ]}
+          active={tab}
+          onChange={(t) => { setTab(t); setQuery(""); }}
+        />
+        <SearchFilter
+          placeholder="Search by name, email or department..."
+          value={query}
+          onChange={setQuery}
+          extraFilters={[
+            { label: "All Roles", options: ["Trainee", "Trainer", "Admin"] },
+            { label: "All Departments", options: ["Forecasting Division", "R&D", "Regional Centres", "Observatories"] },
+          ]}
+        />
+        <ListState
+          loading={loading}
+          error={error}
+          onRetry={reload}
+          empty={!rows.length ? "No users found for this status." : null}
+        >
+          <DataTable
+            columns={["Name", "Email", "Requested Role", "Department", "Request Date", "Status"]}
+            rows={rows}
+            onView={(i) => setReviewing(filteredUsers[i])}
+            viewLabel="Review"
+          />
+        </ListState>
+        {reviewing && (
+          <DetailModal
+            title={reviewing.name}
+            subtitle={reviewing.email}
+            onClose={() => setReviewing(null)}
+            actions={
+              reviewing.accountStatus === "pending" ? (
+                <>
+                  <button
+                    className="button button-primary"
+                    onClick={async () => {
+                      await userService.status(reviewing._id, "approved");
+                      toast("User approved.");
+                      setReviewing(null);
+                      reload();
+                      reloadAll();
+                    }}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    style={{ color: "#ef4444" }}
+                    onClick={async () => {
+                      await userService.status(reviewing._id, "rejected");
+                      toast("User rejected.");
+                      setReviewing(null);
+                      reload();
+                      reloadAll();
+                    }}
+                  >
+                    Reject
+                  </button>
+                </>
+              ) : null
+            }
+          >
+            <DetailRows
+              rows={[
+                ["Name", reviewing.name || "—"],
+                ["Email", reviewing.email || "—"],
+                ["Access Role", cap(reviewing.role)],
+                ["Department", reviewing.department || "—"],
+                ["Designation", reviewing.designation || "—"],
+                ["Account Status", cap(reviewing.accountStatus)],
+                ["Registered", fmt(reviewing.createdAt)],
+              ]}
+            />
+          </DetailModal>
+        )}
+      </div>
+    </Shell>
+  );
+}
 
 /* ═══════════════════════════════════════════════════════════
    MAIN ROUTER
