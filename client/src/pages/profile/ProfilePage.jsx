@@ -27,38 +27,69 @@ import LoadingState from "../../components/ui/LoadingState";
 import ErrorState from "../../components/ui/ErrorState";
 
 const dateValue = (value) => value?.slice(0, 10) || "";
-const makeDraft = (user) => ({
-  name: user.name || "",
-  department: user.department || "Weather Forecasting Division",
-  designation: user.designation || "Forecasting Officer (Trainee)",
-  phone: user.phone || "+91 98765 43210",
-  location: user.location || "New Delhi",
-  employeeId: user.employeeId || "IMD12345",
-  dateOfJoining: user.dateOfJoining ? dateValue(user.dateOfJoining) : "2024-08-12",
-  bio:
-    user.bio ||
-    "Passionate about weather analytics and radar meteorology. Eager to enhance my skills in operational forecasting.",
-  profilePhoto: user.profilePhoto || "",
-  qualifications: (user.qualifications?.length ? user.qualifications : ["B.Tech / M.Sc Meteorology"]).join("\n"),
-  interests: (user.interests?.length ? user.interests : ["Radar Operations", "Numerical Models"]).join(", "),
-  skills: (user.skills?.length ? user.skills : ["Radar Interpretation", "Satellite Imagery", "Synoptic Analysis"]).join(", "),
-  workExperience: (user.workExperience || []).map(
-    ({ organization, role, from, to }) => ({
-      organization,
-      role,
-      from: dateValue(from),
-      to: dateValue(to),
-    }),
-  ),
-  certificates: (user.certificates || []).map(
-    ({ title, issuedBy, date, fileUrl }) => ({
-      title,
-      issuedBy,
-      date: dateValue(date),
-      fileUrl: fileUrl || "",
-    }),
-  ),
-});
+const makeDraft = (user) => {
+  const isTrainer = user.role === "trainer";
+  const isAdmin = user.role === "admin";
+  return {
+    name: user.name || "",
+    department:
+      user.department ||
+      (isTrainer ? "Synthetic Training Faculty" : isAdmin ? "Platform Administration" : "Weather Forecasting Division"),
+    designation:
+      user.designation ||
+      (isTrainer ? "Senior Meteorological Instructor & Radar Lead" : isAdmin ? "System Administrator" : "Forecasting Officer (Trainee)"),
+    phone: user.phone || (isTrainer ? "+91 98112 34567" : "+91 98765 43210"),
+    location: user.location || (isTrainer ? "Central Training Institute, New Delhi" : "New Delhi"),
+    employeeId: user.employeeId || (isTrainer ? "IMD-TRN-4012" : isAdmin ? "IMD-ADM-0001" : "IMD12345"),
+    dateOfJoining: user.dateOfJoining
+      ? dateValue(user.dateOfJoining)
+      : isTrainer
+      ? "2018-06-15"
+      : "2024-08-12",
+    bio:
+      user.bio ||
+      (isTrainer
+        ? "Senior meteorological instructor specializing in Doppler Weather Radar operations, NWP model interpretation, and practical operational forecasting. Dedicated to capacity building and competency verification across IMD regional centers."
+        : isAdmin
+        ? "Platform administrator managing competency frameworks, user governance, and organizational capacity intelligence."
+        : "Passionate about weather analytics and radar meteorology. Eager to enhance my skills in operational forecasting."),
+    profilePhoto: user.profilePhoto || "",
+    qualifications: (user.qualifications?.length
+      ? user.qualifications
+      : isTrainer
+      ? ["Ph.D. in Atmospheric Sciences, IIT Delhi", "M.Sc. Meteorology & Oceanography", "WMO Certified Radar Specialist"]
+      : ["B.Tech / M.Sc Meteorology"]
+    ).join("\n"),
+    interests: (user.interests?.length
+      ? user.interests
+      : isTrainer
+      ? ["Doppler Radar Diagnostics", "Severe Weather Warnings", "Faculty Capability Building"]
+      : ["Radar Operations", "Numerical Models"]
+    ).join(", "),
+    skills: (user.skills?.length
+      ? user.skills
+      : isTrainer
+      ? ["Radar Product Interpretation", "Numerical Weather Prediction", "Practical Rubric Evaluation", "Nowcasting & Warning Systems"]
+      : ["Radar Interpretation", "Satellite Imagery", "Synoptic Analysis"]
+    ).join(", "),
+    workExperience: (user.workExperience || []).map(
+      ({ organization, role, from, to }) => ({
+        organization,
+        role,
+        from: dateValue(from),
+        to: dateValue(to),
+      }),
+    ),
+    certificates: (user.certificates || []).map(
+      ({ title, issuedBy, date, fileUrl }) => ({
+        title,
+        issuedBy,
+        date: dateValue(date),
+        fileUrl: fileUrl || "",
+      }),
+    ),
+  };
+};
 
 export default function ProfilePage() {
   const { user, setUser } = useAuth(),
@@ -204,7 +235,9 @@ export default function ProfilePage() {
       <p className="text-xs text-[#687181]">{empty}</p>
     );
 
-  const initials = (profile.name || "Asha Sharma")
+  const isTrainer = profile?.role === "trainer";
+  const isAdmin = profile?.role === "admin";
+  const initials = (profile.name || (isTrainer ? "Synthetic Trainer" : isAdmin ? "System Admin" : "Asha Sharma"))
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -391,7 +424,9 @@ export default function ProfilePage() {
                   </div>
                   <div className="flex justify-between py-1.5">
                     <span className="text-[#687181] font-medium">Date of Joining</span>
-                    <strong className="text-[#101B46]">12 Aug 2024</strong>
+                    <strong className="text-[#101B46]">
+                      {draft.dateOfJoining ? new Date(draft.dateOfJoining).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : (isTrainer ? "15 Jun 2018" : "12 Aug 2024")}
+                    </strong>
                   </div>
                 </div>
               </div>
@@ -405,24 +440,28 @@ export default function ProfilePage() {
                   </p>
 
                   <h4 className="text-xs font-bold text-[#101B46] uppercase tracking-wider mb-2">
-                    Key Competency Interests
+                    {isTrainer ? "Instruction & Competency Domains" : "Key Competency Interests"}
                   </h4>
                   <div className="flex flex-wrap gap-2 mb-6">
-                    <span className="px-3 py-1 bg-[#EAF3FF] text-[#155CC4] text-xs font-semibold rounded-lg">
-                      Radar Meteorology
-                    </span>
-                    <span className="px-3 py-1 bg-[#EAF3FF] text-[#155CC4] text-xs font-semibold rounded-lg">
-                      Nowcasting
-                    </span>
-                    <span className="px-3 py-1 bg-[#EAF3FF] text-[#155CC4] text-xs font-semibold rounded-lg">
-                      NWP Interpretation
-                    </span>
+                    {(draft.skills ? draft.skills.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 4) : ["Radar Meteorology", "Nowcasting", "NWP Interpretation"]).map((item, idx) => (
+                      <span key={idx} className="px-3 py-1 bg-[#EAF3FF] text-[#155CC4] text-xs font-semibold rounded-lg">
+                        {item}
+                      </span>
+                    ))}
                   </div>
                 </div>
 
                 <div className="p-3.5 bg-[#EFF4FC] border border-[#D9E3F0] rounded-xl text-xs text-[#475875]">
-                  <strong className="text-[#101B46] block mb-0.5">Assigned Professional Role:</strong>
-                  <span>Forecasting Officer — Level 3 Requirement Target</span>
+                  <strong className="text-[#101B46] block mb-0.5">
+                    {isTrainer ? "Faculty Status & Pool:" : isAdmin ? "Platform Governance:" : "Assigned Professional Role:"}
+                  </strong>
+                  <span>
+                    {isTrainer
+                      ? "Verified Lead Faculty — Weather Radar & Operational Forecasting Pool"
+                      : isAdmin
+                      ? "System Administrator & Capacity Coordinator"
+                      : "Forecasting Officer — Level 3 Requirement Target"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -446,9 +485,19 @@ export default function ProfilePage() {
                 ))
               ) : (
                 <div className="py-3">
-                  <h4 className="text-sm font-bold text-[#101B46] m-0">Forecasting Division Trainee</h4>
-                  <p className="text-xs text-[#475875] m-0">Indian Meteorological Department</p>
-                  <span className="text-[11px] text-[#687181]">Aug 2024 — Present</span>
+                  <h4 className="text-sm font-bold text-[#101B46] m-0">
+                    {isTrainer
+                      ? "Senior Meteorological Instructor & Faculty"
+                      : "Forecasting Division Trainee"}
+                  </h4>
+                  <p className="text-xs text-[#475875] m-0">
+                    {isTrainer
+                      ? "Central Training Faculty, Indian Meteorological Department"
+                      : "Indian Meteorological Department"}
+                  </p>
+                  <span className="text-[11px] text-[#687181]">
+                    {isTrainer ? "Jun 2018 — Present" : "Aug 2024 — Present"}
+                  </span>
                 </div>
               )}
             </div>
@@ -531,15 +580,39 @@ export default function ProfilePage() {
                 Self-Declared & Institutional Certifications
               </h3>
               <div className="space-y-3">
-                <div className="p-4 border border-[#D9E3F0] rounded-xl flex items-center justify-between text-xs">
-                  <div>
-                    <strong className="text-[#101B46] block font-semibold">
-                      Basic Weather Observations Certificate
-                    </strong>
-                    <span className="text-[#687181]">Issued by IMD · 12 Jan 2024</span>
+                {profile.certificates?.length ? (
+                  profile.certificates.map((c, i) => (
+                    <div key={i} className="p-4 border border-[#D9E3F0] rounded-xl flex items-center justify-between text-xs">
+                      <div>
+                        <strong className="text-[#101B46] block font-semibold">
+                          {c.title}
+                        </strong>
+                        <span className="text-[#687181]">
+                          Issued by {c.issuedBy}{c.date ? ` · ${new Date(c.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}` : ""}
+                        </span>
+                      </div>
+                      <span className="text-xs font-semibold text-[#16A34A] bg-[#DCFCE7] px-2.5 py-0.5 rounded-full">Verified</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-4 border border-[#D9E3F0] rounded-xl flex items-center justify-between text-xs">
+                    <div>
+                      <strong className="text-[#101B46] block font-semibold">
+                        {isTrainer
+                          ? "Master Trainer Certification in Doppler Weather Radar"
+                          : "Basic Weather Observations Certificate"}
+                      </strong>
+                      <span className="text-[#687181]">
+                        {isTrainer
+                          ? "Issued by WMO & IMD Central Training Faculty · 15 Mar 2021"
+                          : "Issued by IMD · 12 Jan 2024"}
+                      </span>
+                    </div>
+                    <span className={`text-xs font-semibold ${isTrainer ? "text-[#16A34A] bg-[#DCFCE7] px-2.5 py-0.5 rounded-full" : "text-[#155CC4]"}`}>
+                      Verified
+                    </span>
                   </div>
-                  <span className="text-xs font-semibold text-[#155CC4]">Verified</span>
-                </div>
+                )}
               </div>
             </div>
           )}
@@ -562,7 +635,7 @@ export default function ProfilePage() {
                   <BarChart3 size={16} />
                 </div>
                 <span className="text-xs font-semibold text-[#101B46]">
-                  Assess your current competencies
+                  {isTrainer ? "Assess training capacity & availability" : "Assess your current competencies"}
                 </span>
               </div>
 
@@ -571,7 +644,7 @@ export default function ProfilePage() {
                   <BookOpen size={16} />
                 </div>
                 <span className="text-xs font-semibold text-[#101B46]">
-                  Recommend relevant training
+                  {isTrainer ? "Schedule matching training batches" : "Recommend relevant training"}
                 </span>
               </div>
 
@@ -580,7 +653,7 @@ export default function ProfilePage() {
                   <Users size={16} />
                 </div>
                 <span className="text-xs font-semibold text-[#101B46]">
-                  Connect you with suitable trainers
+                  {isTrainer ? "Facilitate mentorship & practical evaluation" : "Connect you with suitable trainers"}
                 </span>
               </div>
 
@@ -589,7 +662,7 @@ export default function ProfilePage() {
                   <TrendingUp size={16} />
                 </div>
                 <span className="text-xs font-semibold text-[#101B46]">
-                  Support your career growth
+                  {isTrainer ? "Recognize verified faculty expertise" : "Support your career growth"}
                 </span>
               </div>
             </div>

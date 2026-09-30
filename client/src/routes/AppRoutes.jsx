@@ -108,11 +108,11 @@ export default function AppRoutes() {
                       element={
                         role === "admin" && ["users", "user-roles", "competencies", "job-role-requirements", "organizational-capability", "skill-gap-analysis", "training-demand", "courses", "assessments", "certificates", "batches", "calendar", "results", "feedback", "feedback-trends", "improvement-actions", "audit-logs", "training-reports", "competency-reports", "trainer-discovery", "trainer-verification", "announcements", "notifications", "knowledge-base", "succession-planning", "risk-assessment", "ttt-programme", "ttt-verification"].includes(path) ? (
                           <AdminExperiencePage view={path} />
-                        ) : role === "trainer" && ["courses", "assigned-batches", "learning", "assessments", "question-bank", "training-sessions", "availability", "calendar", "results", "feedback", "train-the-trainer", "ttt-candidates"].includes(path) ? (
+                        ) : role === "trainer" && ["courses", "assigned-batches", "learning", "assessments", "question-bank", "training-sessions", "availability", "calendar", "results", "feedback", "feedback-aggregates", "evaluations", "evaluations-practical", "evidence-review", "trainer-profile", "trainer-verification", "trainee-monitoring", "train-the-trainer", "ttt-candidates"].includes(path) ? (
                           <TrainerExperiencePage view={path} />
                         ) : tttTraineePaths.has(path) ? (
                           <TttTraineePage />
-                        ) : role === "trainee" && ["competency-passport", "competency-history", "skill-gaps", "learning-paths", "courses", "learning", "assessments", "evidence", "follow-ups", "certificates", "feedback", "notifications"].includes(path) ? (
+                        ) : role === "trainee" && ["competency-passport", "competency-history", "skill-gaps", "learning-paths", "courses", "learning", "assessments", "evidence", "follow-ups", "workplace-application", "competency-updated", "feedback-notifications", "certificates", "feedback", "notifications"].includes(path) ? (
                           <TraineeExperiencePage view={path} />
                         ) : path === "trainer-capacity" ? (
                           <CapacityPage />

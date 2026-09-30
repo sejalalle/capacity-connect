@@ -6,6 +6,9 @@ import { seedPart2 } from "./demoPart2.js";
 import { seedPart3 } from "./demoPart3.js";
 import { seedTrainerWorkspace } from "./demoTrainer.js";
 import { seedRegistrationRequests } from "./demoRegistrationRequests.js";
+import { updateTrainerProfiles } from "./updateTrainerProfiles.js";
+import { seedAssignedTrainees } from "./seedAssignedTrainees.js";
+import { seedTrainerEvaluationsAndEvidence } from "./seedTrainerEvaluationsAndEvidence.js";
 if (process.env.NODE_ENV === "production")
   throw new Error("Demo seed is disabled in production");
 try {
@@ -19,6 +22,9 @@ try {
   const part3 = await seedPart3(admin, part2);
   await seedTrainerWorkspace(admin, part2, part3);
   await seedRegistrationRequests();
+  await updateTrainerProfiles();
+  await seedAssignedTrainees();
+  await seedTrainerEvaluationsAndEvidence();
   console.log(
     "Synthetic Part 2, Part 3A and Part 3B datasets created with traceable admission, trainer, assessment, evidence, competency-decision, and registration request records.",
   );

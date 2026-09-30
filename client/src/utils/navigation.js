@@ -9,6 +9,7 @@ import {
   UserRound,
   ShieldCheck,
   Building2,
+  Briefcase,
   CalendarDays,
   ScrollText,
   ClipboardCheck,
@@ -58,6 +59,8 @@ export const navigationGroups = {
         ["My Courses", "nominations", BookOpenCheck],
         ["Learning Progress", "learning", ChartNoAxesColumnIncreasing],
         ["Learning Resources", "learning", Video],
+        ["Workplace Application", "workplace-application", Briefcase],
+        ["Competency Update", "competency-updated", TrendingUp],
       ],
     },
     {
@@ -105,7 +108,7 @@ export const navigationGroups = {
     },
     {
       group: "FEEDBACK",
-      items: [["Course Feedback", "feedback", ClipboardCheck], ["Trainer Feedback", "feedback", UserCheck], ["Training Experience", "feedback", ScrollText]],
+      items: [["Feedback & Notifications", "feedback-notifications", Bell], ["Course Feedback", "feedback", ClipboardCheck], ["Trainer Feedback", "feedback", UserCheck], ["Training Experience", "feedback", ScrollText]],
     },
     {
       group: "HELP & SUPPORT",
@@ -130,9 +133,8 @@ export const navigationGroups = {
       group: "MY PROFILE",
       items: [
         ["Profile", "profile", UserRound],
-        ["Expertise", "trainer-profile", Fingerprint],
-        ["Experience", "trainer-profile", History],
-        ["Verification", "trainer-profile", ShieldCheck],
+        ["Evidence & Verification", "trainer-verification", ShieldCheck],
+        ["Verified Capability", "trainer-profile", Fingerprint],
       ],
     },
     {
@@ -147,16 +149,15 @@ export const navigationGroups = {
       group: "MY TRAINEES",
       items: [
         ["Assigned Trainees", "assigned-batches", Users],
-        ["Trainee Progress", "assigned-batches", TrendingUp],
-        ["Trainee Assessments", "evaluations", ClipboardCheck],
+        ["Trainees Monitoring", "trainee-monitoring", TrendingUp],
         ["Competency Evidence", "evidence-review", FileCheck2],
       ],
     },
     { group: "RESOURCES", items: [["Resource Library", "learning", Library], ["Learning Materials", "learning", BookOpenCheck]] },
-    { group: "ASSESSMENTS", items: [["Assessments", "assessments", ClipboardCheck], ["Questionnaires", "question-bank", ListChecks], ["Assessment Results", "results", ShieldCheck]] },
-    { group: "SCHEDULE", items: [["Training Sessions", "training-sessions", CalendarDays], ["Availability & Capacity", "availability", Clock3], ["Training Calendar", "calendar", CalendarDays]] },
+    { group: "ASSESSMENTS", items: [["Assessment Creation", "assessments", ClipboardCheck], ["Assessment Review", "evaluations", FileCheck2], ["Practical Evaluation", "evaluations-practical", UserCheck], ["Question Bank", "question-bank", ListChecks], ["Assessment Results", "results", ShieldCheck]] },
+    { group: "SCHEDULE", items: [["Training Session", "training-sessions", CalendarDays], ["Availability & Capacity", "availability", Clock3], ["Training Calendar", "calendar", CalendarDays]] },
     { group: "TRAIN-THE-TRAINER", items: [["Dashboard", "train-the-trainer", LayoutDashboard], ["Candidates", "ttt-candidates", Users], ["Program", "train-the-trainer", Route], ["Learning Modules", "train-the-trainer", BookOpenCheck], ["Teaching Practice", "train-the-trainer", UserCheck], ["Evaluation", "ttt-candidates", ClipboardCheck], ["Completion", "ttt-candidates", Award]] },
-    { group: "FEEDBACK", items: [["Trainee Feedback", "feedback", Users], ["Training Feedback", "feedback", ClipboardCheck]] },
+    { group: "FEEDBACK", items: [["Trainer Feedback", "feedback", ClipboardCheck], ["Feedback Aggregates", "feedback-aggregates", Users]] },
   ],
   admin: [
     { group: "DASHBOARD", items: [["Dashboard", "", LayoutDashboard]] },

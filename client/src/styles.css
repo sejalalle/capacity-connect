@@ -2043,6 +2043,59 @@ textarea:focus {
 }
 .feedback-tabs { padding-left:15px;margin-bottom:0; }
 
+/* Trainee: Workplace Application / Updated Competency / Feedback-Notifications */
+.xp-task-grid { display:grid; grid-template-columns:minmax(0,1.9fr) minmax(250px,.8fr); gap:18px; margin-bottom:18px; align-items:start; }
+.xp-task-grid > .xp-side-stack { align-content:start; }
+.xp-task-card h3.xp-task-title { font-size:15px; margin:4px 0 6px; }
+.xp-task-card .field textarea { min-height:96px; }
+.xp-task-actions { margin-top:12px; }
+.xp-task-icon { width:44px; height:44px; border-radius:12px; background:#eaf3ff; color:#1769cf; display:grid; place-items:center; flex-shrink:0; }
+.xp-task-meta { display:flex; gap:32px; flex-wrap:wrap; border-top:1px solid #e8eef4; border-bottom:1px solid #e8eef4; padding:12px 0; margin:12px 0; }
+.xp-task-meta span { font-size:11px; color:#728196; display:block; }
+.xp-task-meta b { font-size:13px; color:var(--text-primary); }
+.xp-guidelines { list-style:none; margin:0 0 14px; padding:0; display:grid; gap:10px; font-size:12px; color:#45617e; }
+.xp-guidelines li { display:flex; align-items:center; gap:8px; }
+.xp-guidelines svg { color:#16a34a; flex-shrink:0; }
+.xp-task-updated { display:flex; align-items:flex-start; gap:12px; margin-bottom:14px; }
+.xp-task-updated svg { flex-shrink:0; margin-top:2px; }
+.xp-task-updated h2 { font-size:16px; margin:0 0 4px; }
+.xp-task-updated p { font-size:12px; color:#617388; margin:0; }
+.xp-task-updated .button { margin-left:auto; flex-shrink:0; white-space:nowrap; }
+.xp-level-hero { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+.xp-level-hero > div:nth-child(2) { flex:1 1 200px; min-width:0; }
+.xp-level-hero h3 { font-size:17px; margin:0 0 3px; }
+.xp-level-hero p { font-size:12px; color:#617388; margin:0; }
+.xp-level-chip { display:grid; gap:2px; justify-items:center; text-align:center; background:#e9faf3; border:1px solid #bbe7cf; border-radius:10px; padding:10px 22px; flex-shrink:0; }
+.xp-level-chip span { font-size:10px; color:#31775f; }
+.xp-level-chip b { font-size:24px; color:#149165; line-height:1.1; }
+.xp-level-chip em { font-style:normal; font-size:10px; font-weight:700; color:#149165; background:#d3f2e2; border-radius:999px; padding:1px 8px; }
+.xp-journey-card p { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-secondary); margin:0; padding:6px 0; }
+.xp-journey-card p.done { color:var(--text-primary); font-weight:600; }
+.xp-journey-card p.done svg { color:#16a34a; flex-shrink:0; }
+.xp-journey-dot { width:10px; height:10px; border-radius:50%; border:2px solid #cbd5e1; flex-shrink:0; margin-left:2px; }
+.xp-journey-card blockquote { margin:12px 0 0; padding:10px 12px; font-size:11px; color:#54738d; background:#f7faff; border-left:3px solid #1769cf; border-radius:0 8px 8px 0; }
+.feedback-grid label { font-size:12px; font-weight:600; display:grid; gap:6px; margin:12px 0; color:var(--text-primary); }
+.feedback-grid select, .feedback-grid textarea { border:1px solid #dbe5ef; border-radius:8px; padding:9px 12px; font-size:13px; width:100%; box-sizing:border-box; background:#fff; color:var(--text-primary); font-family:inherit; }
+.feedback-grid textarea { min-height:88px; resize:vertical; }
+.feedback-grid .button-primary { width:100%; margin-top:4px; }
+.stars { display:flex; gap:6px; padding:4px 0; }
+.stars button { padding:2px; border-radius:6px; line-height:0; }
+.stars button.on { background:#fff7e8; }
+.notification-row { display:flex; align-items:flex-start; gap:12px; padding:12px 0; border-bottom:1px solid #edf1f5; font-size:12px; }
+.notification-row:last-child { border-bottom:0; }
+.notification-row > svg { color:#1769cf; flex-shrink:0; margin-top:2px; }
+.notification-row > span { flex:1; min-width:0; display:grid; gap:2px; }
+.notification-row strong { font-size:12px; color:var(--text-primary); display:block; }
+.notification-row p { font-size:12px; color:var(--text-secondary); margin:0; overflow-wrap:anywhere; }
+.notification-row small { font-size:10px; color:#728196; }
+.notification-row.unread > span strong::after { content:" ●"; color:#1769cf; font-size:10px; }
+.notification-row .button { flex-shrink:0; white-space:nowrap; }
+.xp-tab-idle b { color:inherit !important; border-bottom-color:transparent !important; }
+
+@media(max-width:950px){
+  .xp-task-grid{grid-template-columns:1fr}
+}
+
 @media(max-width:950px){
   .xp-layout{grid-template-columns:1fr}
   .level-compare{grid-template-columns:1fr 32px 1fr}
